@@ -10,18 +10,18 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
         return createPool({
-          host: 'localhost',
+          host: configService.get('DATABASE_HOST'),
+          port: configService.get('DATABASE_PORT'),
           user: 'root',
           password: configService.get('DATABASE_PASSWORD'),
           database: 'minchelin',
           waitForConnections: true,
           connectionLimit: 10,
           queueLimit: 0,
-          dateStrings: true,
         });
       },
     },
   ],
-  exports: ['DATABASE_CONNECTION'], // DATABASE_CONNECTION을 명시적으로 export
+  exports: ['DATABASE_CONNECTION'],
 })
 export class DatabaseModule {}
