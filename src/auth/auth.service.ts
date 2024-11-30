@@ -6,10 +6,13 @@ import { User } from '../types/users';
 
 @Injectable()
 export class AuthService {
+  private s: string;
+
   constructor(
     @Inject('DATABASE_CONNECTION') private connection: Pool,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+  }
 
   async signup(email: string, password: string, name: string) {
     const [existingUsers] = await this.connection.execute<User[]>(
@@ -38,7 +41,6 @@ export class AuthService {
     );
 
     const user = users[0];
-    const {id, name} = user
 
     if (!user) {
       throw new UnauthorizedException('이메일 또는 비밀번호가 틀렸습니다');
@@ -50,16 +52,25 @@ export class AuthService {
       throw new UnauthorizedException('이메일 또는 비밀번호가 틀렸습니다');
     }
 
-    const accessToken = this.jwtService.sign(
+    this.s = this.jwtService.sign(
       { userId: user.id, email: user.email },
       { expiresIn: '30m' },
     );
+    const accessToken = this.s;
 
     const refreshToken = this.jwtService.sign(
       { userId: user.id, email: user.email },
       { expiresIn: '7d' },
     );
 
-    return {id, email, name, accessToken, refreshToken};
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    };
   }
 }
