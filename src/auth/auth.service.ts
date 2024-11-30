@@ -38,6 +38,7 @@ export class AuthService {
     );
 
     const user = users[0];
+    const {id, name} = user
 
     if (!user) {
       throw new UnauthorizedException('이메일 또는 비밀번호가 틀렸습니다');
@@ -59,6 +60,6 @@ export class AuthService {
       { expiresIn: '7d' },
     );
 
-    return users
+    return {id, email, name, accessToken, refreshToken};
   }
 }
