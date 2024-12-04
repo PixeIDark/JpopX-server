@@ -5,6 +5,8 @@ export interface User extends RowDataPacket {
   email: string;
   password: string;
   name: string;
+  access_token: string | null;
+  refresh_token: string | null;
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;

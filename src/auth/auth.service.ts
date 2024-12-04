@@ -63,6 +63,11 @@ export class AuthService {
       { expiresIn: '7d' },
     );
 
+    await this.connection.execute(
+      'UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?',
+      [accessToken, refreshToken, user.id],
+    );
+
     return {
       accessToken,
       refreshToken,
@@ -72,5 +77,14 @@ export class AuthService {
         name: user.name,
       },
     };
+  }
+
+  async logout(userId: number) {
+    await this.connection.execute(
+      'UPDATE users SET access_token = NULL, refresh_token = NULL WHERE id = ?',
+      [userId],
+    );
+
+    return { message: '로그아웃 성공' };
   }
 }
