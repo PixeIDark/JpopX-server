@@ -3,8 +3,8 @@ import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { AuthGuard } from './auth.guard';
-import { LogoutDto } from './dto/logout.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { Request } from 'express';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -35,8 +35,8 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: '로그아웃' })
   @ApiResponse({ status: 200, description: '로그아웃 성공' })
-  @UseGuards(AuthGuard)
-  async logout(@Body() logoutDto: LogoutDto): Promise<{ message: string }> {
-    return this.authService.logout(logoutDto.userId);
+  @UseGuards(JwtAuthGuard)
+  async logout(@Req() req: Request) {
+    return this.authService.logout(req.user.userId);
   }
 }

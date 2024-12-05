@@ -1,7 +1,10 @@
-// declare module 'express' {
-//   import { User } from './users';
-//
-//   export interface Request {
-//     user: User;
-//   }
-// }
+import { Request } from 'express';
+
+declare module 'express' {
+  interface Request {
+    user?: {
+      userId: number;
+      email: string;
+    };
+  }
+}
