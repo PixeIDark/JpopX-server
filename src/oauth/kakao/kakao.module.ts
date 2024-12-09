@@ -3,13 +3,11 @@ import { KakaoService } from './kakao.service';
 import { KakaoController } from './kakao.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { DatabaseModule } from '../../../database/database.module';
-import { AuthModule } from '../../../auth/auth.module';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [
     DatabaseModule,
-    AuthModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
