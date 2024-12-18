@@ -5,6 +5,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoryResponseDto } from './dto/respones-category.dto';
 import { Category } from '../types/category';
+import { RowDataPacket } from 'mysql2';
 
 @Injectable()
 export class CategoriesService {
@@ -77,25 +78,32 @@ export class CategoriesService {
     return { message: '카테고리가 성공적으로 수정되었습니다.' };
   }
 
-  async remove(id: number): Promise<{ message: string }> {
-    const [recipes] = await this.connection.query<Category[]>(
-      'SELECT id FROM recipe_categories WHERE category_id = ?',
-      [id],
-    );
+  async remove(id: number) {
+    const conn = await this.connection.getConnection();
+    try {
+      // recipe_categories 테이블에서 category_id로 확인
+      const [recipes] = await conn.query<RowDataPacket[]>(
+        'SELECT recipe_id FROM recipe_categories WHERE category_id = ?',
+        [id],
+      );
 
-    if (recipes.length > 0) {
-      throw new ConflictException('이 카테고리를 사용하는 레시피가 존재합니다.');
+      if (recipes.length > 0) {
+        throw new ConflictException('이 카테고리를 사용하는 레시피가 존재합니다.');
+      }
+
+      // 카테고리 삭제
+      const [result] = await conn.query(
+        'DELETE FROM categories WHERE id = ?',
+        [id],
+      );
+
+      if ((result as any).affectedRows === 0) {
+        throw new NotFoundException('카테고리를 찾을 수 없습니다.');
+      }
+
+      return { message: '카테고리가 성공적으로 삭제되었습니다.' };
+    } finally {
+      conn.release();
     }
-
-    const [result] = await this.connection.query(
-      'DELETE FROM categories WHERE id = ?',
-      [id],
-    );
-
-    if ((result as any).affectedRows === 0) {
-      throw new NotFoundException('카테고리를 찾을 수 없습니다.');
-    }
-
-    return { message: '카테고리가 성공적으로 삭제되었습니다.' };
   }
 }
