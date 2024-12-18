@@ -5,6 +5,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DatabaseModule } from './database/database.module';
 import { KakaoModule } from './oauth/kakao/kakao.module';
+import { RecipesModule } from './recipes/recipes.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { KakaoModule } from './oauth/kakao/kakao.module';
     AuthModule,
     UsersModule,
     KakaoModule,
+    RecipesModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
 })

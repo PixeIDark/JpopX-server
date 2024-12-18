@@ -10,7 +10,7 @@ export class KakaoUserDto {
   providerAccountId: string;
 
   @ApiProperty({
-    example: '김민재',
+    example: '강철민',
     description: 'User name from Kakao',
   })
   @IsString()
