@@ -1,23 +1,27 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 import { DatabaseModule } from './database/database.module';
-import { CategoriesController } from './categories/categories.controller';
-import { CategoriesService } from './categories/categories.service';
+import { KakaoModule } from './oauth/kakao/kakao.module';
+import { RecipesModule } from './recipes/recipes.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
-    DatabaseModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET'),
-      }),
-      inject: [ConfigService],
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
     }),
+    DatabaseModule,
+    AuthModule,
+    UsersModule,
+    KakaoModule,
+    RecipesModule,
+    CategoriesModule,
   ],
-  controllers: [CategoriesController],
-  providers: [CategoriesService],
+  controllers: [AppController],
 })
-export class CategoriesModule {
+export class AppModule {
 }
