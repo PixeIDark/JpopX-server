@@ -3,7 +3,7 @@ import { Pool } from 'mysql2/promise';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
 import { User } from '../types/users';
-import { Recipe, RecipeIngredient, RecipeStep } from '../types/recipe';
+import { Recipe } from '../types/recipe';
 import { RowDataPacket } from 'mysql2';
 
 @Injectable()
@@ -93,13 +93,13 @@ export class RecipesService {
 
   async findAll({ page, limit, category }: { page: number; limit: number; category?: number }) {
     let query = `
-     SELECT r.*, u.username as author_name, c.name as category_name,
-     COUNT(*) OVER() as total_count
-     FROM recipes r
-     JOIN users u ON r.user_id = u.id
-     JOIN recipe_categories rc ON r.id = rc.recipe_id
-     JOIN categories c ON rc.category_id = c.id
-   `;
+    SELECT r.*, u.name as author_name, c.name as category_name,
+    COUNT(*) OVER() as total_count
+    FROM recipes r
+    JOIN users u ON r.user_id = u.id
+    JOIN recipe_categories rc ON r.id = rc.recipe_id
+    JOIN categories c ON rc.category_id = c.id
+  `;
 
     const params = [];
     if (category) {
@@ -127,7 +127,7 @@ export class RecipesService {
 
   async findOne(id: number) {
     const [recipes] = await this.connection.query<Recipe[]>(
-      `SELECT r.*, u.username as author_name, c.name as category_name
+      `SELECT r.*, u.name as author_name, c.name as category_name
       FROM recipes r
       JOIN users u ON r.user_id = u.id
       JOIN recipe_categories rc ON r.id = rc.recipe_id
@@ -135,6 +135,7 @@ export class RecipesService {
       WHERE r.id = ?`,
       [id],
     );
+
 
     if (recipes.length === 0) {
       throw new NotFoundException('레시피를 찾을 수 없습니다.');
