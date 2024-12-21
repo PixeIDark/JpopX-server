@@ -1,15 +1,15 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 
-type CloudinaryLib = {
-  config: typeof cloudinary.config;
-  uploader: typeof cloudinary.uploader;
-};
-
 @Injectable()
 export class CloudinaryService {
-  constructor(@Inject('CLOUDINARY') private readonly cloudinaryLib: CloudinaryLib) {
+  constructor() {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
   }
 
   async uploadImage(file: Express.Multer.File): Promise<string> {
