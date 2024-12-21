@@ -1,15 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'debug', 'log', 'verbose'],
-  });
-
-  const logger = new Logger('Bootstrap');
-  logger.log('Application starting...');
+  const app = await NestFactory.create(AppModule);
 
   // Validation Pipe
   app.useGlobalPipes(new ValidationPipe());
@@ -27,7 +22,6 @@ async function bootstrap() {
 
   app.enableCors();
   await app.listen(3000);
-  logger.log('Application started');
 }
 
 bootstrap();
