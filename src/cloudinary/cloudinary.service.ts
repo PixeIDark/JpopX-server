@@ -6,16 +6,16 @@ import { Readable } from 'stream';
 export class CloudinaryService {
   constructor() {
     cloudinary.config({
-      cloud_name: 'dqbckjofm',
-      api_key: '616963312383764',
-      api_secret: 'ooen9a5UCbGvNaKWWIgVIWCSbVs',
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
     });
   }
 
   async uploadImage(file: Express.Multer.File): Promise<string> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        { folder: 'minchelin' },
+        { folder: process.env.CLOUDINARY_FOLDER },
         (error, result) => {
           if (error) return reject(error);
           resolve(result.secure_url);
