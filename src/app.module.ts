@@ -7,6 +7,7 @@ import { DatabaseModule } from './database/database.module';
 import { KakaoModule } from './oauth/kakao/kakao.module';
 import { RecipesModule } from './recipes/recipes.module';
 import { CategoriesModule } from './categories/categories.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CategoriesModule } from './categories/categories.module';
     KakaoModule,
     RecipesModule,
     CategoriesModule,
+    CloudinaryModule,
   ],
   controllers: [AppController],
 })
