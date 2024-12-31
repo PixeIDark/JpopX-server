@@ -7,7 +7,7 @@ import { DatabaseModule } from '../database/database.module';
   imports: [DatabaseModule],
   controllers: [SearchController],
   providers: [SearchService],
-  exports: [SearchService],  // SearchService를 export 해야 함
+  exports: [SearchService],
 })
 export class SearchModule {
 }

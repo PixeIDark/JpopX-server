@@ -9,6 +9,78 @@ export class SearchService {
   ) {
   }
 
+  async search(
+    text: string,
+    lang: 'ko' | 'ja' | 'en',
+    searchType: 'both' | 'artist' | 'title' | 'lyrics',
+    sort: 'latest' | 'popular',
+    limit: number = 20,
+    page: number = 1,
+  ) {
+    const offset = (page - 1) * limit;
+
+    const query = `
+      SELECT 
+        s.*,
+        si.artist_ko,
+        si.artist_ja,
+        si.artist_en,
+        si.romanized_ko
+      FROM search_index si
+      INNER JOIN songs s ON si.song_id = s.id
+      WHERE 
+        CASE '${lang}'
+          WHEN 'ja' THEN 
+            si.title_ja LIKE CONCAT('%', ?, '%') OR 
+            si.artist_ja LIKE CONCAT('%', ?, '%')
+            ${searchType === 'lyrics' ? 'OR si.romanized_ko LIKE CONCAT("%", ?, "%")' : ''}
+          WHEN 'ko' THEN 
+            si.title_ko LIKE CONCAT('%', ?, '%') OR 
+            si.artist_ko LIKE CONCAT('%', ?, '%')
+            ${searchType === 'lyrics' ? 'OR si.romanized_ko LIKE CONCAT("%", ?, "%")' : ''}
+          ELSE 
+            si.title_en LIKE CONCAT('%', ?, '%') OR 
+            si.artist_en LIKE CONCAT('%', ?, '%')
+        END
+      ${searchType === 'artist' ? 'AND si.artist_ko IS NOT NULL' : ''}
+      ${searchType === 'title' ? 'AND si.title_ko IS NOT NULL' : ''}
+      ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.created_at'} DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const params = [
+      text,
+      text,
+      ...(searchType === 'lyrics' ? [text] : []),
+      limit,
+      offset,
+    ];
+
+    const [rows] = await this.connection.execute(query, params);
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM search_index si
+      WHERE 
+        CASE '${lang}'
+          WHEN 'ja' THEN si.title_ja LIKE CONCAT('%', ?, '%') OR si.artist_ja LIKE CONCAT('%', ?, '%')
+          WHEN 'ko' THEN si.title_ko LIKE CONCAT('%', ?, '%') OR si.artist_ko LIKE CONCAT('%', ?, '%')
+          ELSE si.title_en LIKE CONCAT('%', ?, '%') OR si.artist_en LIKE CONCAT('%', ?, '%')
+        END
+      ${searchType === 'artist' ? 'AND si.artist_ko IS NOT NULL' : ''}
+      ${searchType === 'title' ? 'AND si.title_ko IS NOT NULL' : ''}
+    `;
+
+    const [countRows] = await this.connection.execute(countQuery, [text, text]);
+
+    return {
+      items: rows,
+      total: countRows[0].total,
+      page,
+      limit,
+    };
+  }
+
   async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
     const query = `
       INSERT INTO search_index 
