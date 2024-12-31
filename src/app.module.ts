@@ -5,9 +5,11 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DatabaseModule } from './database/database.module';
 import { KakaoModule } from './oauth/kakao/kakao.module';
-import { RecipesModule } from './recipes/recipes.module';
-import { CategoriesModule } from './categories/categories.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { SearchModule } from './search/search.module';
+import { ArtistsModule } from './artists/artists.module';
+import { SongsModule } from './songs/songs.module';
+import { LyricsModule } from './lyrics/lyrics.module';
 
 @Module({
   imports: [
@@ -19,9 +21,11 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     AuthModule,
     UsersModule,
     KakaoModule,
-    RecipesModule,
-    CategoriesModule,
     CloudinaryModule,
+    SearchModule,
+    ArtistsModule,
+    SongsModule,
+    LyricsModule,
   ],
   controllers: [AppController],
 })
