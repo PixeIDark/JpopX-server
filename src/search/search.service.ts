@@ -20,6 +20,7 @@ export class SearchService {
     try {
       const offset = (page - 1) * limit;
 
+      // CASE 문에서 lang 파라미터를 직접 문자열로 사용
       const query = `
         SELECT 
           s.*,
@@ -85,6 +86,34 @@ export class SearchService {
       console.error('Search error:', error);
       throw error;
     }
+  }
+
+  async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
+    const query = `
+      INSERT INTO search_index 
+        (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
+      VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        title_ko = VALUES(title_ko),
+        title_ja = VALUES(title_ja),
+        title_en = VALUES(title_en),
+        artist_ko = VALUES(artist_ko),
+        artist_ja = VALUES(artist_ja),
+        artist_en = VALUES(artist_en),
+        romanized_ko = VALUES(romanized_ko)
+    `;
+
+    await this.connection.execute(query, [
+      songId,
+      songData.title_ko,
+      songData.title_ja,
+      songData.title_en,
+      artistData.name_ko,
+      artistData.name_ja,
+      artistData.name_en,
+      lyricsText ? this.convertToRomanizedKo(lyricsText) : null,
+    ]);
   }
 
   private convertToRomanizedKo(lyricsText: string): string {
