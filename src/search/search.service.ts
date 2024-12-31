@@ -19,8 +19,36 @@ export class SearchService {
   ) {
     try {
       const offset = (page - 1) * limit;
+      const searchPattern = `%${text}%`;
 
-      // CASE 문에서 lang 파라미터를 직접 문자열로 사용
+      let whereClause = '';
+      const params = [];
+
+      // 언어별 검색 조건
+      if (lang === 'ko') {
+        whereClause = '(si.title_ko LIKE ? OR si.artist_ko LIKE ?)';
+        params.push(searchPattern, searchPattern);
+      } else if (lang === 'ja') {
+        whereClause = '(si.title_ja LIKE ? OR si.artist_ja LIKE ?)';
+        params.push(searchPattern, searchPattern);
+      } else {
+        whereClause = '(si.title_en LIKE ? OR si.artist_en LIKE ?)';
+        params.push(searchPattern, searchPattern);
+      }
+
+      // 검색 타입 조건 추가
+      if (searchType === 'artist') {
+        whereClause += ' AND si.artist_ko IS NOT NULL';
+      } else if (searchType === 'title') {
+        whereClause += ' AND si.title_ko IS NOT NULL';
+      } else if (searchType === 'lyrics' && lang === 'ja') {
+        whereClause += ' OR si.romanized_ko LIKE ?';
+        params.push(searchPattern);
+      }
+
+      // 정렬 및 페이지네이션 파라미터 추가
+      params.push(limit, offset);
+
       const query = `
         SELECT 
           s.*,
@@ -30,51 +58,27 @@ export class SearchService {
           si.romanized_ko
         FROM search_index si
         INNER JOIN songs s ON si.song_id = s.id
-        WHERE 
-          CASE '${lang}'
-            WHEN 'ja' THEN 
-              (si.title_ja LIKE ? OR si.artist_ja LIKE ?)
-              ${searchType === 'lyrics' ? 'OR si.romanized_ko LIKE ?' : ''}
-            WHEN 'ko' THEN 
-              (si.title_ko LIKE ? OR si.artist_ko LIKE ?)
-              ${searchType === 'lyrics' ? 'OR si.romanized_ko LIKE ?' : ''}
-            ELSE 
-              (si.title_en LIKE ? OR si.artist_en LIKE ?)
-          END
-        ${searchType === 'artist' ? 'AND si.artist_ko IS NOT NULL' : ''}
-        ${searchType === 'title' ? 'AND si.title_ko IS NOT NULL' : ''}
+        WHERE ${whereClause}
         ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.created_at'} DESC
         LIMIT ? OFFSET ?
       `;
 
-      const searchPattern = `%${text}%`;
-      const params = [
-        searchPattern, // title
-        searchPattern, // artist
-        ...(searchType === 'lyrics' ? [searchPattern] : []), // lyrics
-        limit,
-        offset,
-      ];
+      console.log('Query:', query);
+      console.log('Params:', params);
 
       const [rows] = await this.connection.execute(query, params);
 
+      // Count query
       const countQuery = `
         SELECT COUNT(*) as total
         FROM search_index si
-        WHERE 
-          CASE '${lang}'
-            WHEN 'ja' THEN (si.title_ja LIKE ? OR si.artist_ja LIKE ?)
-            WHEN 'ko' THEN (si.title_ko LIKE ? OR si.artist_ko LIKE ?)
-            ELSE (si.title_en LIKE ? OR si.artist_en LIKE ?)
-          END
-        ${searchType === 'artist' ? 'AND si.artist_ko IS NOT NULL' : ''}
-        ${searchType === 'title' ? 'AND si.title_ko IS NOT NULL' : ''}
+        WHERE ${whereClause}
       `;
 
-      const [countRows] = await this.connection.execute(countQuery, [
-        searchPattern,
-        searchPattern,
-      ]);
+      const [countRows] = await this.connection.execute(
+        countQuery,
+        params.slice(0, -2),  // 마지막 limit, offset 제외
+      );
 
       return {
         items: rows,
