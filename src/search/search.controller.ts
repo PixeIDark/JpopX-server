@@ -17,9 +17,16 @@ export class SearchController {
     @Query('lang') lang: 'ko' | 'ja' | 'en',
     @Query('searchType') searchType: 'both' | 'artist' | 'title' | 'lyrics',
     @Query('sort') sort: 'latest' | 'popular',
-    @Query('limit') limit: number = 20,
-    @Query('page') page: number = 1,
+    @Query('limit') limit: string = '20',
+    @Query('page') page: string = '1',
   ) {
-    return this.searchService.search(text, lang, searchType, sort, limit, page);
+    return this.searchService.search(
+      text,
+      lang,
+      searchType,
+      sort,
+      parseInt(limit),
+      parseInt(page),
+    );
   }
 }
