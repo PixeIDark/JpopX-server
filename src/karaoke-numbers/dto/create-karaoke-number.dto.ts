@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsString, IsNumber, IsBoolean, IsDate, IsOptional } from 'class-validator';
+import { IsEnum, IsString, IsNumber, IsBoolean, IsOptional } from 'class-validator';
 
 export class CreateKaraokeNumberDto {
   @ApiProperty({ description: '노래 ID' })
@@ -18,9 +18,4 @@ export class CreateKaraokeNumberDto {
   @IsBoolean()
   @IsOptional()
   is_active?: boolean;
-
-  @ApiPropertyOptional({ description: '번호 유효성 최종 확인 일자' })
-  @IsDate()
-  @IsOptional()
-  last_verified_at?: Date;
 }

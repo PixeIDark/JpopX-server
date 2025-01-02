@@ -14,16 +14,15 @@ export class KaraokeNumbersService {
   async create(createDto: CreateKaraokeNumberDto) {
     const query = `
       INSERT INTO karaoke_numbers 
-        (song_id, brand, number, is_active, last_verified_at)
-      VALUES (?, ?, ?, ?, ?)
+        (song_id, brand, number, is_active)
+      VALUES (?, ?, ?, ?)
     `;
 
     const [result] = await this.connection.execute<ResultSetHeader>(query, [
       createDto.song_id,
       createDto.brand,
       createDto.number,
-      createDto.is_active ?? true,
-      createDto.last_verified_at || new Date(),
+      createDto.is_active ?? true,  // 기본값 true
     ]);
 
     return { id: result.insertId, ...createDto };
@@ -36,15 +35,13 @@ export class KaraokeNumbersService {
       UPDATE karaoke_numbers
       SET 
         number = COALESCE(?, number),
-        is_active = COALESCE(?, is_active),
-        last_verified_at = COALESCE(?, last_verified_at)
+        is_active = COALESCE(?, is_active)
       WHERE id = ?
     `;
 
     await this.connection.execute(query, [
       updateDto.number,
       updateDto.is_active,
-      updateDto.last_verified_at,
       numericId,
     ]);
 
