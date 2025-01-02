@@ -41,10 +41,10 @@ export class SongsService {
   }
 
   async createComplete(createCompleteDto: CreateSongCompleteDto) {
-    // 트랜잭션 시작
-    await this.connection.beginTransaction();
-
     try {
+      // 트랜잭션 시작
+      await this.connection.execute('START TRANSACTION');
+
       // 1. 노래 생성
       const savedSong = await this.create(createCompleteDto.song);
 
@@ -66,7 +66,7 @@ export class SongsService {
         }
       }
 
-      await this.connection.commit();
+      await this.connection.execute('COMMIT');
 
       // 4. 검색 인덱스 업데이트
       const artist = await this.artistsService.findOne(savedSong.artist_id);
@@ -79,7 +79,7 @@ export class SongsService {
 
       return savedSong;
     } catch (error) {
-      await this.connection.rollback();
+      await this.connection.execute('ROLLBACK');
       throw error;
     }
   }
