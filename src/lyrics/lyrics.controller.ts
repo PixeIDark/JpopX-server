@@ -23,13 +23,12 @@ export class LyricsController {
     lyrics_text: string;
   }) {
     const savedLyrics = await this.lyricsService.create(createLyricsDto);
-    const song = await this.songsService.findOne(createLyricsDto.song_id);
-    const artist = await this.artistsService.findOne(song.artist_id);
 
+    // 가사만 업데이트
     await this.searchService.updateSearchIndex(
-      song.id,
-      song,
-      artist,
+      createLyricsDto.song_id,
+      null,
+      null,
       savedLyrics.lyrics_text,
     );
 
@@ -49,13 +48,12 @@ export class LyricsController {
     lyrics_text: string;
   }) {
     const updatedLyrics = await this.lyricsService.update(id, updateLyricsDto);
-    const song = await this.songsService.findOne(updatedLyrics.song_id);
-    const artist = await this.artistsService.findOne(song.artist_id);
 
+    // 가사만 업데이트
     await this.searchService.updateSearchIndex(
-      song.id,
-      song,
-      artist,
+      updatedLyrics.song_id,
+      null,
+      null,
       updateLyricsDto.lyrics_text,
     );
 

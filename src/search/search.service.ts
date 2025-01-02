@@ -93,20 +93,36 @@ export class SearchService {
   }
 
   async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
-    const query = `
-      INSERT INTO search_index 
-        (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
-      VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        title_ko = VALUES(title_ko),
-        title_ja = VALUES(title_ja),
-        title_en = VALUES(title_en),
-        artist_ko = VALUES(artist_ko),
-        artist_ja = VALUES(artist_ja),
-        artist_en = VALUES(artist_en),
-        romanized_ko = VALUES(romanized_ko)
+    // lyricsText가 있는 경우 (가사 추가/수정)
+    if (lyricsText) {
+      const updateLyricsQuery = `
+      UPDATE search_index 
+      SET romanized_ko = ?
+      WHERE song_id = ?
     `;
+
+      await this.connection.execute(updateLyricsQuery, [
+        this.convertToRomanizedKo(lyricsText),
+        songId,
+      ]);
+
+      return;
+    }
+
+    // lyricsText가 없는 경우 (곡 정보 추가/수정)
+    const query = `
+    INSERT INTO search_index 
+      (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      title_ko = VALUES(title_ko),
+      title_ja = VALUES(title_ja),
+      title_en = VALUES(title_en),
+      artist_ko = VALUES(artist_ko),
+      artist_ja = VALUES(artist_ja),
+      artist_en = VALUES(artist_en)
+  `;
 
     await this.connection.execute(query, [
       songId,
@@ -116,7 +132,6 @@ export class SearchService {
       artistData.name_ko,
       artistData.name_ja,
       artistData.name_en,
-      lyricsText ? this.convertToRomanizedKo(lyricsText) : null,
     ]);
   }
 
