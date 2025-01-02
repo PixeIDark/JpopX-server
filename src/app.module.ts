@@ -10,6 +10,7 @@ import { SearchModule } from './search/search.module';
 import { ArtistsModule } from './artists/artists.module';
 import { SongsModule } from './songs/songs.module';
 import { LyricsModule } from './lyrics/lyrics.module';
+import { KaraokeNumbersModule } from './karaoke-numbers/karaoke-numbers.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { LyricsModule } from './lyrics/lyrics.module';
     ArtistsModule,
     SongsModule,
     LyricsModule,
+    KaraokeNumbersModule,
   ],
   controllers: [AppController],
 })
