@@ -44,10 +44,12 @@ export class SongsService {
     let savedSong;
 
     try {
+      console.log('트랜잭션 시작');
       await this.connection.execute('START TRANSACTION');
 
       // 1. 노래 생성
       savedSong = await this.create(createCompleteDto.song);
+      console.log('노래 생성 완료:', savedSong);
 
       // 2. 가사 생성 (있는 경우)
       if (createCompleteDto.lyrics) {
@@ -55,32 +57,39 @@ export class SongsService {
           song_id: savedSong.id,
           lyrics_text: createCompleteDto.lyrics.lyrics_text,
         });
+        console.log('가사 생성 완료');
       }
 
       // 3. 노래방 번호 생성 (있는 경우)
       if (createCompleteDto.karaokeNumbers?.length) {
         for (const karaokeNumber of createCompleteDto.karaokeNumbers) {
-          await this.karaokeNumbersService.create({
+          const savedNumber = await this.karaokeNumbersService.create({
             ...karaokeNumber,
             song_id: savedSong.id,
           });
+          console.log('노래방 번호 생성 완료:', savedNumber);
         }
       }
 
       await this.connection.execute('COMMIT');
+      console.log('트랜잭션 커밋 완료');
 
-      // 트랜잭션이 성공적으로 완료된 후에 검색 인덱스 업데이트
+      // 4. 검색 인덱스 업데이트
+      console.log('검색 인덱스 업데이트 시작');
       const artist = await this.artistsService.findOne(savedSong.artist_id);
+      console.log('아티스트 조회:', artist);
+
       await this.searchService.updateSearchIndex(
         savedSong.id,
         savedSong,
         artist,
         createCompleteDto.lyrics?.lyrics_text,
       );
+      console.log('검색 인덱스 업데이트 완료');
 
       return savedSong;
     } catch (error) {
-      console.error('에러 발생! 롤백 실행:', error);
+      console.error('에러 발생:', error);
       await this.connection.execute('ROLLBACK');
       throw error;
     }
