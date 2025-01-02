@@ -7,6 +7,7 @@ import { DatabaseModule } from '../database/database.module';
   imports: [DatabaseModule],
   controllers: [KaraokeNumbersController],
   providers: [KaraokeNumbersService],
+  exports: [KaraokeNumbersService],
 })
 export class KaraokeNumbersModule {
 }

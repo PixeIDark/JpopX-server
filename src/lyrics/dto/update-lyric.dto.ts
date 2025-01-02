@@ -1,4 +1,8 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateLyricDto } from './create-lyric.dto';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
 
-export class UpdateLyricDto extends PartialType(CreateLyricDto) {}
+export class UpdateLyricsDto {
+  @ApiProperty({ description: '가사 텍스트' })
+  @IsString()
+  lyrics_text: string;
+}

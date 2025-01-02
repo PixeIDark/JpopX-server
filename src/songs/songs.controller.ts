@@ -3,6 +3,9 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from '../search/search.service';
 import { ArtistsService } from '../artists/artists.service';
 import { SongsService } from './songs.service';
+import { CreateSongDto } from './dto/create-song.dto';
+import { UpdateSongDto } from './dto/update-song.dto';
+import { CreateSongCompleteDto } from './dto/create-song-complete.dto';
 
 @ApiTags('songs')
 @Controller('songs')
@@ -16,14 +19,7 @@ export class SongsController {
 
   @Post()
   @ApiOperation({ summary: '노래 생성' })
-  async create(@Body() createSongDto: {
-    title_ko: string;
-    title_ja?: string;
-    title_en?: string;
-    artist_id: number;
-    release_date?: Date;
-    thumbnail_url?: string;
-  }) {
+  async create(@Body() createSongDto: CreateSongDto) {
     const savedSong = await this.songsService.create(createSongDto);
     const artist = await this.artistsService.findOne(createSongDto.artist_id);
 
@@ -36,30 +32,38 @@ export class SongsController {
     return savedSong;
   }
 
+  @Post('complete')
+  @ApiOperation({ summary: '노래, 가사, 노래방 번호 일괄 생성' })
+  async createComplete(@Body() createCompleteDto: CreateSongCompleteDto) {
+    return await this.songsService.createComplete(createCompleteDto);
+  }
+
+  @Post('bulk')
+  @ApiOperation({ summary: '여러 곡 일괄 생성' })
+  async createBulk(@Body() createCompleteDtos: CreateSongCompleteDto[]) {
+    const results = [];
+    for (const dto of createCompleteDtos) {
+      const result = await this.songsService.createComplete(dto);
+      results.push(result);
+    }
+    return results;
+  }
+
   @Get()
   @ApiOperation({ summary: '노래 목록 조회' })
   async findAll() {
-    const songs = await this.songsService.findAll();
-    return songs;
+    return await this.songsService.findAll();
   }
 
   @Get(':id')
   @ApiOperation({ summary: '특정 노래 조회' })
   async findOne(@Param('id') id: string) {
-    const song = await this.songsService.findOne(id);
-    return song;
+    return await this.songsService.findOne(id);
   }
 
   @Put(':id')
   @ApiOperation({ summary: '노래 정보 수정' })
-  async update(@Param('id') id: string, @Body() updateSongDto: {
-    title_ko?: string;
-    title_ja?: string;
-    title_en?: string;
-    artist_id?: number;
-    release_date?: Date;
-    thumbnail_url?: string;
-  }) {
+  async update(@Param('id') id: string, @Body() updateSongDto: UpdateSongDto) {
     const updatedSong = await this.songsService.update(id, updateSongDto);
     const artist = await this.artistsService.findOne(updatedSong.artist_id);
 
@@ -75,7 +79,6 @@ export class SongsController {
   @Delete(':id')
   @ApiOperation({ summary: '노래 삭제' })
   async remove(@Param('id') id: string) {
-    const result = await this.songsService.remove(id);
-    return result;
+    return await this.songsService.remove(id);
   }
 }

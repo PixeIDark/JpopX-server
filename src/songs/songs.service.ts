@@ -1,28 +1,32 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Connection, ResultSetHeader } from 'mysql2/promise';
 import { RowDataPacket } from 'mysql2';
+import { CreateSongCompleteDto } from './dto/create-song-complete.dto';
+import { SearchService } from '../search/search.service';
+import { LyricsService } from '../lyrics/lyrics.service';
+import { ArtistsService } from '../artists/artists.service';
+import { KaraokeNumbersService } from '../karaoke-numbers/karaoke-numbers.service';
+import { CreateSongDto } from './dto/create-song.dto';
+import { UpdateSongDto } from './dto/update-song.dto';
 
 @Injectable()
 export class SongsService {
   constructor(
     @Inject('DATABASE_CONNECTION')
     private connection: Connection,
+    private readonly searchService: SearchService,
+    private readonly lyricsService: LyricsService,
+    private readonly artistsService: ArtistsService,
+    private readonly karaokeNumbersService: KaraokeNumbersService,
   ) {
   }
 
-  async create(createSongDto: {
-    title_ko: string;
-    title_ja?: string;
-    title_en?: string;
-    artist_id: number;
-    release_date?: Date;
-    thumbnail_url?: string;
-  }) {
+  async create(createSongDto: CreateSongDto) {
     const query = `
-     INSERT INTO songs 
-       (title_ko, title_ja, title_en, artist_id, release_date, thumbnail_url)
-     VALUES (?, ?, ?, ?, ?, ?)
-   `;
+      INSERT INTO songs 
+        (title_ko, title_ja, title_en, artist_id, release_date, thumbnail_url)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
 
     const [result] = await this.connection.execute<ResultSetHeader>(query, [
       createSongDto.title_ko,
@@ -34,6 +38,50 @@ export class SongsService {
     ]);
 
     return { id: result.insertId, ...createSongDto };
+  }
+
+  async createComplete(createCompleteDto: CreateSongCompleteDto) {
+    // 트랜잭션 시작
+    await this.connection.beginTransaction();
+
+    try {
+      // 1. 노래 생성
+      const savedSong = await this.create(createCompleteDto.song);
+
+      // 2. 가사 생성 (있는 경우)
+      if (createCompleteDto.lyrics) {
+        await this.lyricsService.create({
+          song_id: savedSong.id,
+          lyrics_text: createCompleteDto.lyrics.lyrics_text,
+        });
+      }
+
+      // 3. 노래방 번호 생성 (있는 경우)
+      if (createCompleteDto.karaokeNumbers?.length) {
+        for (const karaokeNumber of createCompleteDto.karaokeNumbers) {
+          await this.karaokeNumbersService.create({
+            ...karaokeNumber,
+            song_id: savedSong.id,
+          });
+        }
+      }
+
+      await this.connection.commit();
+
+      // 4. 검색 인덱스 업데이트
+      const artist = await this.artistsService.findOne(savedSong.artist_id);
+      await this.searchService.updateSearchIndex(
+        savedSong.id,
+        savedSong,
+        artist,
+        createCompleteDto.lyrics?.lyrics_text,
+      );
+
+      return savedSong;
+    } catch (error) {
+      await this.connection.rollback();
+      throw error;
+    }
   }
 
   async findAll() {
@@ -59,33 +107,26 @@ export class SongsService {
     return rows;
   }
 
-  async update(id: string | number, updateSongDto: {
-    title_ko?: string;
-    title_ja?: string;
-    title_en?: string;
-    artist_id?: number;
-    release_date?: Date;
-    thumbnail_url?: string;
-  }) {
+  async update(id: string | number, updateSongDto: UpdateSongDto) {
     const numericId = typeof id === 'string' ? parseInt(id) : id;
     const query = `
-     UPDATE songs
-     SET 
-       title_ko = COALESCE(?, title_ko),
-       title_ja = COALESCE(?, title_ja),
-       title_en = COALESCE(?, title_en),
-       artist_id = COALESCE(?, artist_id),
-       release_date = COALESCE(?, release_date),
-       thumbnail_url = COALESCE(?, thumbnail_url)
-     WHERE id = ?
-   `;
+    UPDATE songs
+    SET 
+      title_ko = COALESCE(?, title_ko),
+      title_ja = COALESCE(?, title_ja),
+      title_en = COALESCE(?, title_en),
+      artist_id = COALESCE(?, artist_id),
+      release_date = COALESCE(?, release_date),
+      thumbnail_url = COALESCE(?, thumbnail_url)
+    WHERE id = ?
+  `;
 
     await this.connection.execute(query, [
       updateSongDto.title_ko,
       updateSongDto.title_ja,
       updateSongDto.title_en,
       updateSongDto.artist_id,
-      updateSongDto.release_date,
+      updateSongDto.release_date,  // string으로 받아서 DB에서 자동으로 Date로 변환
       updateSongDto.thumbnail_url,
       numericId,
     ]);
@@ -98,4 +139,5 @@ export class SongsService {
     await this.connection.execute('DELETE FROM songs WHERE id = ?', [numericId]);
     return { id: numericId };
   }
+
 }
