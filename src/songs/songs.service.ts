@@ -41,12 +41,13 @@ export class SongsService {
   }
 
   async createComplete(createCompleteDto: CreateSongCompleteDto) {
+    let savedSong;
+
     try {
-      // 트랜잭션 시작
       await this.connection.execute('START TRANSACTION');
 
       // 1. 노래 생성
-      const savedSong = await this.create(createCompleteDto.song);
+      savedSong = await this.create(createCompleteDto.song);
 
       // 2. 가사 생성 (있는 경우)
       if (createCompleteDto.lyrics) {
@@ -68,7 +69,7 @@ export class SongsService {
 
       await this.connection.execute('COMMIT');
 
-      // 4. 검색 인덱스 업데이트
+      // 트랜잭션이 성공적으로 완료된 후에 검색 인덱스 업데이트
       const artist = await this.artistsService.findOne(savedSong.artist_id);
       await this.searchService.updateSearchIndex(
         savedSong.id,
@@ -79,6 +80,7 @@ export class SongsService {
 
       return savedSong;
     } catch (error) {
+      console.error('에러 발생! 롤백 실행:', error);
       await this.connection.execute('ROLLBACK');
       throw error;
     }
