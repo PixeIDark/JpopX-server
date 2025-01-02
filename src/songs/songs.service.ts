@@ -44,12 +44,10 @@ export class SongsService {
     let savedSong;
 
     try {
-      console.log('트랜잭션 시작');
       await this.connection.execute('START TRANSACTION');
 
       // 1. 노래 생성
       savedSong = await this.create(createCompleteDto.song);
-      console.log('노래 생성 완료:', savedSong);
 
       // 2. 가사 생성 (있는 경우)
       if (createCompleteDto.lyrics) {
@@ -57,7 +55,6 @@ export class SongsService {
           song_id: savedSong.id,
           lyrics_text: createCompleteDto.lyrics.lyrics_text,
         });
-        console.log('가사 생성 완료');
       }
 
       // 3. 노래방 번호 생성 (있는 경우)
@@ -67,17 +64,13 @@ export class SongsService {
             ...karaokeNumber,
             song_id: savedSong.id,
           });
-          console.log('노래방 번호 생성 완료:', savedNumber);
         }
       }
 
       await this.connection.execute('COMMIT');
-      console.log('트랜잭션 커밋 완료');
 
       // 4. 검색 인덱스 업데이트
-      console.log('검색 인덱스 업데이트 시작');
       const artist = await this.artistsService.findOne(savedSong.artist_id);
-      console.log('아티스트 조회:', artist);
 
       await this.searchService.updateSearchIndex(
         savedSong.id,
@@ -85,7 +78,6 @@ export class SongsService {
         artist,
         createCompleteDto.lyrics?.lyrics_text,
       );
-      console.log('검색 인덱스 업데이트 완료');
 
       return savedSong;
     } catch (error) {

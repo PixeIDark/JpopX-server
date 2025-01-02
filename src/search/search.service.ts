@@ -24,7 +24,6 @@ export class SearchService {
       let whereClause = '';
       const params = [];
 
-      // 언어별 검색 조건
       if (lang === 'ko') {
         whereClause = '(si.title_ko LIKE ? OR si.artist_ko LIKE ?)';
         params.push(searchPattern, searchPattern);
@@ -36,7 +35,6 @@ export class SearchService {
         params.push(searchPattern, searchPattern);
       }
 
-      // 검색 타입 조건 추가
       if (searchType === 'artist') {
         whereClause += ' AND si.artist_ko IS NOT NULL';
       } else if (searchType === 'title') {
@@ -46,38 +44,39 @@ export class SearchService {
         params.push(searchPattern);
       }
 
-      // 정렬 및 페이지네이션 파라미터 추가
       params.push(limit, offset);
 
       const query = `
-        SELECT 
-          s.*,
-          si.artist_ko,
-          si.artist_ja,
-          si.artist_en,
-          si.romanized_ko
-        FROM search_index si
-        INNER JOIN songs s ON si.song_id = s.id
-        WHERE ${whereClause}
-        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.created_at'} DESC
-        LIMIT ? OFFSET ?
-      `;
+      SELECT 
+        s.*,
+        si.song_id,  
+        si.artist_ko,
+        si.artist_ja,
+        si.artist_en,
+        si.romanized_ko
+      FROM search_index si
+      INNER JOIN songs s ON si.song_id = s.id
+      WHERE ${whereClause}
+      ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.created_at'} DESC
+      LIMIT ? OFFSET ?
+    `;
 
-      console.log('Query:', query);
-      console.log('Params:', params);
+      // 쿼리 실행 로그
+      console.log('검색 쿼리:', query);
+      console.log('검색 파라미터:', params);
 
       const [rows] = await this.connection.execute(query, params);
 
-      // Count query
+      // 전체 개수 쿼리
       const countQuery = `
-        SELECT COUNT(*) as total
-        FROM search_index si
-        WHERE ${whereClause}
-      `;
+      SELECT COUNT(*) as total
+      FROM search_index si
+      WHERE ${whereClause}
+    `;
 
       const [countRows] = await this.connection.execute(
         countQuery,
-        params.slice(0, -2),  // 마지막 limit, offset 제외
+        params.slice(0, -2), // limit, offset 제외
       );
 
       return {
@@ -87,7 +86,7 @@ export class SearchService {
         limit,
       };
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('검색 중 오류 발생:', error);
       throw error;
     }
   }
@@ -125,10 +124,8 @@ export class SearchService {
         artistData.name_en,
         lyricsText ? this.convertToRomanizedKo(lyricsText) : null,
       ]);
-      console.log('검색 인덱스 업데이트 결과:', result);
       return result;
     } catch (error) {
-      console.error('검색 인덱스 업데이트 에러:', error);
       throw error;
     }
   }
