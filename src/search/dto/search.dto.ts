@@ -6,10 +6,6 @@ export class SearchQueryDto {
   @IsString()
   text: string;
 
-  @ApiProperty({ description: '검색 언어', enum: ['ko', 'ja', 'en'] })
-  @IsEnum(['ko', 'ja', 'en'])
-  lang: 'ko' | 'ja' | 'en';
-
   @ApiProperty({
     description: '검색 타입',
     enum: ['both', 'artist', 'title', 'lyrics'],

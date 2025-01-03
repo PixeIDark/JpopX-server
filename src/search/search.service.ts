@@ -11,7 +11,6 @@ export class SearchService {
 
   async search(
     text: string,
-    lang: 'ko' | 'ja' | 'en',
     searchType: 'both' | 'artist' | 'title' | 'lyrics',
     sort: 'latest' | 'popular',
     limit: number = 20,
@@ -20,64 +19,66 @@ export class SearchService {
     try {
       const offset = (page - 1) * limit;
       const searchPattern = `%${text}%`;
-
-      let whereClause = '';
       const params = [];
 
-      if (lang === 'ko') {
-        whereClause = '(si.title_ko LIKE ? OR si.artist_ko LIKE ?)';
-        params.push(searchPattern, searchPattern);
-      } else if (lang === 'ja') {
-        whereClause = '(si.title_ja LIKE ? OR si.artist_ja LIKE ?)';
-        params.push(searchPattern, searchPattern);
-      } else {
-        whereClause = '(si.title_en LIKE ? OR si.artist_en LIKE ?)';
-        params.push(searchPattern, searchPattern);
-      }
-
+      // 검색 타입별 WHERE 절 구성
+      let whereClause = '';
       if (searchType === 'artist') {
-        whereClause += ' AND si.artist_ko IS NOT NULL';
+        whereClause = '(si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?)';
+        params.push(searchPattern, searchPattern, searchPattern);
       } else if (searchType === 'title') {
-        whereClause += ' AND si.title_ko IS NOT NULL';
-      } else if (searchType === 'lyrics' && lang === 'ja') {
-        whereClause += ' OR si.romanized_ko LIKE ?';
+        whereClause = '(si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ?)';
+        params.push(searchPattern, searchPattern, searchPattern);
+      } else if (searchType === 'lyrics') {
+        whereClause = 'si.romanized_ko LIKE ?';
         params.push(searchPattern);
+      } else {
+        // both - 모든 언어의 제목과 아티스트 검색
+        whereClause = `(
+        si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ? OR 
+        si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?
+      )`;
+        params.push(
+          searchPattern, searchPattern, searchPattern,  // title
+          searchPattern, searchPattern, searchPattern,   // artist
+        );
       }
 
       params.push(limit, offset);
 
       const query = `
-        SELECT 
-          si.id,
-          si.song_id,
-          s.title_ko,
-          s.title_ja,
-          s.title_en,
-          s.artist_id,
-          s.release_date,
-          s.thumbnail_url,
-          s.popularity_score,
-          s.created_at,
-          s.updated_at,
-          si.artist_ko,
-          si.artist_ja,
-          si.artist_en,
-          si.romanized_ko
-        FROM search_index si
-        INNER JOIN songs s ON si.song_id = s.id
-        WHERE ${whereClause}
-        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.created_at'} DESC
-        LIMIT ? OFFSET ?
-      `;
+       SELECT 
+         si.id,
+         si.song_id,
+         s.title_ko,
+         s.title_ja,
+         s.title_en,
+         s.artist_id,
+         s.release_date,
+         s.thumbnail_url,
+         s.popularity_score,
+         s.created_at,
+         s.updated_at,
+         si.artist_ko,
+         si.artist_ja,
+         si.artist_en,
+         si.romanized_ko
+       FROM search_index si
+       INNER JOIN songs s ON si.song_id = s.id
+       WHERE ${whereClause}
+       ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+       LIMIT ? OFFSET ?
+     `;
+
 
       const [rows] = await this.connection.execute(query, params);
 
       // 전체 개수 쿼리
       const countQuery = `
-      SELECT COUNT(*) as total
-      FROM search_index si
-      WHERE ${whereClause}
-    `;
+       SELECT COUNT(*) as total
+       FROM search_index si
+       WHERE ${whereClause}
+     `;
 
       const [countRows] = await this.connection.execute(
         countQuery,
@@ -97,26 +98,20 @@ export class SearchService {
   }
 
   async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
-    console.log('updateSearchIndex params:', {
-      songId,
-      songData,
-      artistData,
-      lyricsText,
-    });
 
     const query = `
-    INSERT INTO search_index 
-      (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      title_ko = VALUES(title_ko),
-      title_ja = VALUES(title_ja),
-      title_en = VALUES(title_en),
-      artist_ko = VALUES(artist_ko),
-      artist_ja = VALUES(artist_ja),
-      artist_en = VALUES(artist_en),
-      romanized_ko = VALUES(romanized_ko)
-  `;
+     INSERT INTO search_index 
+       (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       title_ko = VALUES(title_ko),
+       title_ja = VALUES(title_ja),
+       title_en = VALUES(title_en),
+       artist_ko = VALUES(artist_ko),
+       artist_ja = VALUES(artist_ja),
+       artist_en = VALUES(artist_en),
+       romanized_ko = VALUES(romanized_ko)
+   `;
 
     try {
       const result = await this.connection.execute(query, [
@@ -131,6 +126,7 @@ export class SearchService {
       ]);
       return result;
     } catch (error) {
+      console.error('검색 인덱스 업데이트 중 오류:', error);
       throw error;
     }
   }

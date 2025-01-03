@@ -14,7 +14,6 @@ export class SearchController {
   @ApiOperation({ summary: '통합 검색' })
   async search(
     @Query('text') text: string,
-    @Query('lang') lang: 'ko' | 'ja' | 'en',
     @Query('searchType') searchType: 'both' | 'artist' | 'title' | 'lyrics',
     @Query('sort') sort: 'latest' | 'popular',
     @Query('limit') limit: string = '20',
@@ -22,7 +21,6 @@ export class SearchController {
   ) {
     return this.searchService.search(
       text,
-      lang,
       searchType,
       sort,
       parseInt(limit),
