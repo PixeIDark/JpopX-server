@@ -63,7 +63,7 @@ export class SearchService {
           si.artist_ja,
           si.artist_en,
           si.romanized_ko,
-          kn.tk_number,
+          kn.tj_number,
           kn.kumyoung_number
         FROM search_index si
         INNER JOIN songs s ON si.song_id = s.id

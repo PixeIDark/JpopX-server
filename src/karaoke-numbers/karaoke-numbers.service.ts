@@ -31,16 +31,16 @@ export class KaraokeNumbersService {
     const numericId = typeof id === 'string' ? parseInt(id) : id;
 
     const query = `
-      UPDATE karaoke_numbers
-      SET 
-        number = COALESCE(?, number),
-        is_active = COALESCE(?, is_active)
-      WHERE id = ?
-    `;
+    UPDATE karaoke_numbers
+    SET 
+      tj_number = COALESCE(?, tj_number),
+      kumyoung_number = COALESCE(?, kumyoung_number)
+    WHERE id = ?
+  `;
 
     await this.connection.execute(query, [
-      updateDto.number,
-      updateDto.is_active,
+      updateDto.tj_number,
+      updateDto.kumyoung_number,
       numericId,
     ]);
 
