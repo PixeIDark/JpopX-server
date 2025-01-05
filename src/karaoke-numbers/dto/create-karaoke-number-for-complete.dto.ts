@@ -1,12 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateKaraokeNumberForCompleteDto {
-  @ApiProperty({ description: '노래방 브랜드', enum: ['kumyoung', 'tj'] })
-  @IsEnum(['kumyoung', 'tj'])
-  brand: 'kumyoung' | 'tj';
-
-  @ApiProperty({ description: '노래방 번호' })
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
+  @IsOptional()
   @IsString()
-  number: string;
+  tk_number?: string;
+
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  kumyoung_number?: string;
 }

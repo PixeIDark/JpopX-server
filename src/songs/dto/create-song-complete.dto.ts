@@ -21,5 +21,5 @@ export class CreateSongCompleteDto {
   @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => CreateKaraokeNumberForCompleteDto)
-  karaokeNumbers?: CreateKaraokeNumberForCompleteDto[];
+  karaokeNumbers?: CreateKaraokeNumberForCompleteDto;
 }

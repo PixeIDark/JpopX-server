@@ -13,16 +13,15 @@ export class KaraokeNumbersService {
 
   async create(createDto: CreateKaraokeNumberDto) {
     const query = `
-      INSERT INTO karaoke_numbers 
-        (song_id, brand, number, is_active)
-      VALUES (?, ?, ?, ?)
-    `;
+    INSERT INTO karaoke_numbers 
+      (song_id, tk_number, kumyoung_number)
+    VALUES (?, ?, ?)
+  `;
 
     const [result] = await this.connection.execute<ResultSetHeader>(query, [
       createDto.song_id,
-      createDto.brand,
-      createDto.number,
-      createDto.is_active ?? true,  // 기본값 true
+      createDto.tk_number,
+      createDto.kumyoung_number,
     ]);
 
     return { id: result.insertId, ...createDto };

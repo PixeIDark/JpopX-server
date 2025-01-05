@@ -58,13 +58,12 @@ export class SongsService {
       }
 
       // 3. 노래방 번호 생성 (있는 경우)
-      if (createCompleteDto.karaokeNumbers?.length) {
-        for (const karaokeNumber of createCompleteDto.karaokeNumbers) {
-          const savedNumber = await this.karaokeNumbersService.create({
-            ...karaokeNumber,
-            song_id: savedSong.id,
-          });
-        }
+      if (createCompleteDto.karaokeNumbers) {
+        await this.karaokeNumbersService.create({
+          song_id: savedSong.id,
+          tk_number: createCompleteDto.karaokeNumbers.tk_number,
+          kumyoung_number: createCompleteDto.karaokeNumbers.kumyoung_number,
+        });
       }
 
       await this.connection.execute('COMMIT');

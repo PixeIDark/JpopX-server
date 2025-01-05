@@ -47,28 +47,31 @@ export class SearchService {
       params.push(limit, offset);
 
       const query = `
-       SELECT 
-         si.id,
-         si.song_id,
-         s.title_ko,
-         s.title_ja,
-         s.title_en,
-         s.artist_id,
-         s.release_date,
-         s.thumbnail_url,
-         s.popularity_score,
-         s.created_at,
-         s.updated_at,
-         si.artist_ko,
-         si.artist_ja,
-         si.artist_en,
-         si.romanized_ko
-       FROM search_index si
-       INNER JOIN songs s ON si.song_id = s.id
-       WHERE ${whereClause}
-       ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
-       LIMIT ? OFFSET ?
-     `;
+        SELECT 
+          si.id,
+          si.song_id,
+          s.title_ko,
+          s.title_ja,
+          s.title_en,
+          s.artist_id,
+          s.release_date,
+          s.thumbnail_url,
+          s.popularity_score,
+          s.created_at,
+          s.updated_at,
+          si.artist_ko,
+          si.artist_ja,
+          si.artist_en,
+          si.romanized_ko,
+          kn.tk_number,
+          kn.kumyoung_number
+        FROM search_index si
+        INNER JOIN songs s ON si.song_id = s.id
+        LEFT JOIN karaoke_numbers kn ON s.id = kn.song_id
+        WHERE ${whereClause}
+        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+        LIMIT ? OFFSET ?
+      `;
 
 
       const [rows] = await this.connection.execute(query, params);

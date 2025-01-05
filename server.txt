@@ -1117,10 +1117,6 @@ export class SearchQueryDto {
   @IsString()
   text: string;
 
-  @ApiProperty({ description: '검색 언어', enum: ['ko', 'ja', 'en'] })
-  @IsEnum(['ko', 'ja', 'en'])
-  lang: 'ko' | 'ja' | 'en';
-
   @ApiProperty({
     description: '검색 타입',
     enum: ['both', 'artist', 'title', 'lyrics'],
@@ -1163,7 +1159,6 @@ export class SearchController {
   @ApiOperation({ summary: '통합 검색' })
   async search(
     @Query('text') text: string,
-    @Query('lang') lang: 'ko' | 'ja' | 'en',
     @Query('searchType') searchType: 'both' | 'artist' | 'title' | 'lyrics',
     @Query('sort') sort: 'latest' | 'popular',
     @Query('limit') limit: string = '20',
@@ -1171,7 +1166,6 @@ export class SearchController {
   ) {
     return this.searchService.search(
       text,
-      lang,
       searchType,
       sort,
       parseInt(limit),
@@ -1209,7 +1203,6 @@ export class SearchService {
 
   async search(
     text: string,
-    lang: 'ko' | 'ja' | 'en',
     searchType: 'both' | 'artist' | 'title' | 'lyrics',
     sort: 'latest' | 'popular',
     limit: number = 20,
@@ -1218,64 +1211,70 @@ export class SearchService {
     try {
       const offset = (page - 1) * limit;
       const searchPattern = `%${text}%`;
-
-      let whereClause = '';
       const params = [];
 
-      // 언어별 검색 조건
-      if (lang === 'ko') {
-        whereClause = '(si.title_ko LIKE ? OR si.artist_ko LIKE ?)';
-        params.push(searchPattern, searchPattern);
-      } else if (lang === 'ja') {
-        whereClause = '(si.title_ja LIKE ? OR si.artist_ja LIKE ?)';
-        params.push(searchPattern, searchPattern);
-      } else {
-        whereClause = '(si.title_en LIKE ? OR si.artist_en LIKE ?)';
-        params.push(searchPattern, searchPattern);
-      }
-
-      // 검색 타입 조건 추가
+      // 검색 타입별 WHERE 절 구성
+      let whereClause = '';
       if (searchType === 'artist') {
-        whereClause += ' AND si.artist_ko IS NOT NULL';
+        whereClause = '(si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?)';
+        params.push(searchPattern, searchPattern, searchPattern);
       } else if (searchType === 'title') {
-        whereClause += ' AND si.title_ko IS NOT NULL';
-      } else if (searchType === 'lyrics' && lang === 'ja') {
-        whereClause += ' OR si.romanized_ko LIKE ?';
+        whereClause = '(si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ?)';
+        params.push(searchPattern, searchPattern, searchPattern);
+      } else if (searchType === 'lyrics') {
+        whereClause = 'si.romanized_ko LIKE ?';
         params.push(searchPattern);
+      } else {
+        // both - 모든 언어의 제목과 아티스트 검색
+        whereClause = `(
+        si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ? OR 
+        si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?
+      )`;
+        params.push(
+          searchPattern, searchPattern, searchPattern,  // title
+          searchPattern, searchPattern, searchPattern,   // artist
+        );
       }
 
-      // 정렬 및 페이지네이션 파라미터 추가
       params.push(limit, offset);
 
       const query = `
-        SELECT 
-          s.*,
-          si.artist_ko,
-          si.artist_ja,
-          si.artist_en,
-          si.romanized_ko
-        FROM search_index si
-        INNER JOIN songs s ON si.song_id = s.id
-        WHERE ${whereClause}
-        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.created_at'} DESC
-        LIMIT ? OFFSET ?
-      `;
+       SELECT 
+         si.id,
+         si.song_id,
+         s.title_ko,
+         s.title_ja,
+         s.title_en,
+         s.artist_id,
+         s.release_date,
+         s.thumbnail_url,
+         s.popularity_score,
+         s.created_at,
+         s.updated_at,
+         si.artist_ko,
+         si.artist_ja,
+         si.artist_en,
+         si.romanized_ko
+       FROM search_index si
+       INNER JOIN songs s ON si.song_id = s.id
+       WHERE ${whereClause}
+       ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+       LIMIT ? OFFSET ?
+     `;
 
-      console.log('Query:', query);
-      console.log('Params:', params);
 
       const [rows] = await this.connection.execute(query, params);
 
-      // Count query
+      // 전체 개수 쿼리
       const countQuery = `
-        SELECT COUNT(*) as total
-        FROM search_index si
-        WHERE ${whereClause}
-      `;
+       SELECT COUNT(*) as total
+       FROM search_index si
+       WHERE ${whereClause}
+     `;
 
       const [countRows] = await this.connection.execute(
         countQuery,
-        params.slice(0, -2),  // 마지막 limit, offset 제외
+        params.slice(0, -2), // limit, offset 제외
       );
 
       return {
@@ -1285,32 +1284,26 @@ export class SearchService {
         limit,
       };
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('검색 중 오류 발생:', error);
       throw error;
     }
   }
 
   async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
-    console.log('updateSearchIndex params:', {
-      songId,
-      songData,
-      artistData,
-      lyricsText,
-    });
 
     const query = `
-    INSERT INTO search_index 
-      (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-      title_ko = VALUES(title_ko),
-      title_ja = VALUES(title_ja),
-      title_en = VALUES(title_en),
-      artist_ko = VALUES(artist_ko),
-      artist_ja = VALUES(artist_ja),
-      artist_en = VALUES(artist_en),
-      romanized_ko = VALUES(romanized_ko)
-  `;
+     INSERT INTO search_index 
+       (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       title_ko = VALUES(title_ko),
+       title_ja = VALUES(title_ja),
+       title_en = VALUES(title_en),
+       artist_ko = VALUES(artist_ko),
+       artist_ja = VALUES(artist_ja),
+       artist_en = VALUES(artist_en),
+       romanized_ko = VALUES(romanized_ko)
+   `;
 
     try {
       const result = await this.connection.execute(query, [
@@ -1323,10 +1316,9 @@ export class SearchService {
         artistData.name_en,
         lyricsText ? this.convertToRomanizedKo(lyricsText) : null,
       ]);
-      console.log('검색 인덱스 업데이트 결과:', result);
       return result;
     } catch (error) {
-      console.error('검색 인덱스 업데이트 에러:', error);
+      console.error('검색 인덱스 업데이트 중 오류:', error);
       throw error;
     }
   }
@@ -1592,12 +1584,10 @@ export class SongsService {
     let savedSong;
 
     try {
-      console.log('트랜잭션 시작');
       await this.connection.execute('START TRANSACTION');
 
       // 1. 노래 생성
       savedSong = await this.create(createCompleteDto.song);
-      console.log('노래 생성 완료:', savedSong);
 
       // 2. 가사 생성 (있는 경우)
       if (createCompleteDto.lyrics) {
@@ -1605,7 +1595,6 @@ export class SongsService {
           song_id: savedSong.id,
           lyrics_text: createCompleteDto.lyrics.lyrics_text,
         });
-        console.log('가사 생성 완료');
       }
 
       // 3. 노래방 번호 생성 (있는 경우)
@@ -1615,17 +1604,13 @@ export class SongsService {
             ...karaokeNumber,
             song_id: savedSong.id,
           });
-          console.log('노래방 번호 생성 완료:', savedNumber);
         }
       }
 
       await this.connection.execute('COMMIT');
-      console.log('트랜잭션 커밋 완료');
 
       // 4. 검색 인덱스 업데이트
-      console.log('검색 인덱스 업데이트 시작');
       const artist = await this.artistsService.findOne(savedSong.artist_id);
-      console.log('아티스트 조회:', artist);
 
       await this.searchService.updateSearchIndex(
         savedSong.id,
@@ -1633,7 +1618,6 @@ export class SongsService {
         artist,
         createCompleteDto.lyrics?.lyrics_text,
       );
-      console.log('검색 인덱스 업데이트 완료');
 
       return savedSong;
     } catch (error) {
