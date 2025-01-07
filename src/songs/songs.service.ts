@@ -61,7 +61,7 @@ export class SongsService {
       if (createCompleteDto.karaokeNumbers) {
         await this.karaokeNumbersService.create({
           song_id: savedSong.id,
-          tk_number: createCompleteDto.karaokeNumbers.tj_number,
+          tj_number: createCompleteDto.karaokeNumbers.tj_number,
           kumyoung_number: createCompleteDto.karaokeNumbers.kumyoung_number,
         });
       }
