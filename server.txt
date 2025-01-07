@@ -599,56 +599,55 @@ export class DatabaseModule {}
 
 
 --- src\karaoke-numbers\dto\create-karaoke-number-for-complete.dto.ts ---
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateKaraokeNumberForCompleteDto {
-  @ApiProperty({ description: '노래방 브랜드', enum: ['kumyoung', 'tj'] })
-  @IsEnum(['kumyoung', 'tj'])
-  brand: 'kumyoung' | 'tj';
-
-  @ApiProperty({ description: '노래방 번호' })
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
+  @IsOptional()
   @IsString()
-  number: string;
+  tj_number?: string;
+
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  kumyoung_number?: string;
 }
 
 --- src\karaoke-numbers\dto\create-karaoke-number.dto.ts ---
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsString, IsNumber, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
 
 export class CreateKaraokeNumberDto {
   @ApiProperty({ description: '노래 ID' })
   @IsNumber()
   song_id: number;
 
-  @ApiProperty({ description: '노래방 브랜드', enum: ['kumyoung', 'tj'] })
-  @IsEnum(['kumyoung', 'tj'])
-  brand: 'kumyoung' | 'tj';
-
-  @ApiProperty({ description: '노래방 번호' })
-  @IsString()
-  number: string;
-
-  @ApiPropertyOptional({ description: '사용 가능 여부' })
-  @IsBoolean()
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
   @IsOptional()
-  is_active?: boolean;
+  @IsString()
+  tj_number?: string;
+
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  kumyoung_number?: string;
 }
 
 --- src\karaoke-numbers\dto\update-karaoke-number.dto.ts ---
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class UpdateKaraokeNumberDto {
-  @ApiPropertyOptional({ description: '노래방 번호' })
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
   @IsString()
   @IsOptional()
-  number?: string;
+  tj_number?: string;
 
-  @ApiPropertyOptional({ description: '사용 가능 여부' })
-  @IsBoolean()
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsString()
   @IsOptional()
-  is_active?: boolean;
+  kumyoung_number?: string;
 }
 
 --- src\karaoke-numbers\entities\karaoke-number.entity.ts ---
@@ -717,16 +716,15 @@ export class KaraokeNumbersService {
 
   async create(createDto: CreateKaraokeNumberDto) {
     const query = `
-      INSERT INTO karaoke_numbers 
-        (song_id, brand, number, is_active)
-      VALUES (?, ?, ?, ?)
-    `;
+    INSERT INTO karaoke_numbers 
+      (song_id, tj_number, kumyoung_number)
+    VALUES (?, ?, ?)
+  `;
 
     const [result] = await this.connection.execute<ResultSetHeader>(query, [
       createDto.song_id,
-      createDto.brand,
-      createDto.number,
-      createDto.is_active ?? true,  // 기본값 true
+      createDto.tj_number,
+      createDto.kumyoung_number,
     ]);
 
     return { id: result.insertId, ...createDto };
@@ -736,16 +734,16 @@ export class KaraokeNumbersService {
     const numericId = typeof id === 'string' ? parseInt(id) : id;
 
     const query = `
-      UPDATE karaoke_numbers
-      SET 
-        number = COALESCE(?, number),
-        is_active = COALESCE(?, is_active)
-      WHERE id = ?
-    `;
+    UPDATE karaoke_numbers
+    SET 
+      tj_number = COALESCE(?, tj_number),
+      kumyoung_number = COALESCE(?, kumyoung_number)
+    WHERE id = ?
+  `;
 
     await this.connection.execute(query, [
-      updateDto.number,
-      updateDto.is_active,
+      updateDto.tj_number,
+      updateDto.kumyoung_number,
       numericId,
     ]);
 
@@ -1239,28 +1237,31 @@ export class SearchService {
       params.push(limit, offset);
 
       const query = `
-       SELECT 
-         si.id,
-         si.song_id,
-         s.title_ko,
-         s.title_ja,
-         s.title_en,
-         s.artist_id,
-         s.release_date,
-         s.thumbnail_url,
-         s.popularity_score,
-         s.created_at,
-         s.updated_at,
-         si.artist_ko,
-         si.artist_ja,
-         si.artist_en,
-         si.romanized_ko
-       FROM search_index si
-       INNER JOIN songs s ON si.song_id = s.id
-       WHERE ${whereClause}
-       ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
-       LIMIT ? OFFSET ?
-     `;
+        SELECT 
+          si.id,
+          si.song_id,
+          s.title_ko,
+          s.title_ja,
+          s.title_en,
+          s.artist_id,
+          s.release_date,
+          s.thumbnail_url,
+          s.popularity_score,
+          s.created_at,
+          s.updated_at,
+          si.artist_ko,
+          si.artist_ja,
+          si.artist_en,
+          si.romanized_ko,
+          kn.tj_number,
+          kn.kumyoung_number
+        FROM search_index si
+        INNER JOIN songs s ON si.song_id = s.id
+        LEFT JOIN karaoke_numbers kn ON s.id = kn.song_id
+        WHERE ${whereClause}
+        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+        LIMIT ? OFFSET ?
+      `;
 
 
       const [rows] = await this.connection.execute(query, params);
@@ -1354,7 +1355,7 @@ export class CreateSongCompleteDto {
   @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => CreateKaraokeNumberForCompleteDto)
-  karaokeNumbers?: CreateKaraokeNumberForCompleteDto[];
+  karaokeNumbers?: CreateKaraokeNumberForCompleteDto;
 }
 
 --- src\songs\dto\create-song.dto.ts ---
@@ -1598,13 +1599,12 @@ export class SongsService {
       }
 
       // 3. 노래방 번호 생성 (있는 경우)
-      if (createCompleteDto.karaokeNumbers?.length) {
-        for (const karaokeNumber of createCompleteDto.karaokeNumbers) {
-          const savedNumber = await this.karaokeNumbersService.create({
-            ...karaokeNumber,
-            song_id: savedSong.id,
-          });
-        }
+      if (createCompleteDto.karaokeNumbers) {
+        await this.karaokeNumbersService.create({
+          song_id: savedSong.id,
+          tk_number: createCompleteDto.karaokeNumbers.tj_number,
+          kumyoung_number: createCompleteDto.karaokeNumbers.kumyoung_number,
+        });
       }
 
       await this.connection.execute('COMMIT');

@@ -9,7 +9,7 @@ export class CreateKaraokeNumberDto {
   @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
   @IsOptional()
   @IsString()
-  tk_number?: string;
+  tj_number?: string;
 
   @ApiPropertyOptional({ description: '금영 노래방 번호' })
   @IsOptional()

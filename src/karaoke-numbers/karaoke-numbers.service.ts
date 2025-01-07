@@ -14,13 +14,13 @@ export class KaraokeNumbersService {
   async create(createDto: CreateKaraokeNumberDto) {
     const query = `
     INSERT INTO karaoke_numbers 
-      (song_id, tk_number, kumyoung_number)
+      (song_id, tj_number, kumyoung_number)
     VALUES (?, ?, ?)
   `;
 
     const [result] = await this.connection.execute<ResultSetHeader>(query, [
       createDto.song_id,
-      createDto.tk_number,
+      createDto.tj_number,
       createDto.kumyoung_number,
     ]);
 
