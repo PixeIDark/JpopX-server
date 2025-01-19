@@ -4,6 +4,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from '../database/database.module';
+import { RefreshTokenController } from './refresh-token/refresh-token.controller';
+import { RefreshTokenService } from './refresh-token/refresh-token.service';
 
 @Module({
   imports: [
@@ -17,8 +19,9 @@ import { DatabaseModule } from '../database/database.module';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService],
+  controllers: [AuthController, RefreshTokenController],
+  providers: [AuthService, RefreshTokenService],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule {
+}

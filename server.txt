@@ -263,6 +263,108 @@ export class SignUpDto {
 export class Auth {}
 
 
+--- src\auth\refresh-token\dto\refresh-token.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
+
+export class RefreshTokenDto {
+  @ApiProperty({
+    description: 'Refresh token',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @IsString()
+  refreshToken: string;
+}
+
+
+--- src\auth\refresh-token\entities\refresh-token.entity.ts ---
+export class RefreshToken {}
+
+
+--- src\auth\refresh-token\refresh-token.controller.ts ---
+import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RefreshTokenService } from './refresh-token.service';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+
+@ApiTags('auth/refresh')
+@Controller('auth/refresh')
+export class RefreshTokenController {
+  constructor(private readonly refreshTokenService: RefreshTokenService) {
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'Token refresh successful' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    try {
+      return await this.refreshTokenService.refreshToken(refreshTokenDto.refreshToken);
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+}
+
+--- src\auth\refresh-token\refresh-token.service.ts ---
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Connection } from 'mysql2/promise';
+
+@Injectable()
+export class RefreshTokenService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+    private readonly jwtService: JwtService,
+  ) {
+  }
+
+  async refreshToken(refreshToken: string) {
+    // 1. Verify refresh token
+    let payload;
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // 2. Check if refresh token exists in database
+    const [users] = await this.connection.execute(
+      'SELECT * FROM users WHERE id = ? AND refresh_token = ? AND deleted_at IS NULL',
+      [payload.userId, refreshToken],
+    );
+
+    if (!users[0]) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
+
+    // 3. Generate new token pair
+    const newAccessToken = this.jwtService.sign(
+      { userId: payload.userId, email: payload.email },
+      { expiresIn: '30m' },
+    );
+
+    const newRefreshToken = this.jwtService.sign(
+      { userId: payload.userId, email: payload.email },
+      { expiresIn: '7d' },
+    );
+
+    // 4. Update tokens in database
+    await this.connection.execute(
+      'UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?',
+      [newAccessToken, newRefreshToken, payload.userId],
+    );
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+}
+
 --- src\auth\auth.controller.ts ---
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -315,6 +417,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from '../database/database.module';
+import { RefreshTokenController } from './refresh-token/refresh-token.controller';
+import { RefreshTokenService } from './refresh-token/refresh-token.service';
 
 @Module({
   imports: [
@@ -328,11 +432,12 @@ import { DatabaseModule } from '../database/database.module';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService],
+  controllers: [AuthController, RefreshTokenController],
+  providers: [AuthService, RefreshTokenService],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule {
+}
 
 
 --- src\auth\auth.service.ts ---
@@ -1602,7 +1707,7 @@ export class SongsService {
       if (createCompleteDto.karaokeNumbers) {
         await this.karaokeNumbersService.create({
           song_id: savedSong.id,
-          tk_number: createCompleteDto.karaokeNumbers.tj_number,
+          tj_number: createCompleteDto.karaokeNumbers.tj_number,
           kumyoung_number: createCompleteDto.karaokeNumbers.kumyoung_number,
         });
       }
