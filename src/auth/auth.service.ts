@@ -16,7 +16,7 @@ export class AuthService {
 
   async signup(email: string, password: string, name: string) {
     const [existingUsers] = await this.connection.execute<User[]>(
-      'SELECT email FROM users WHERE email = ?',
+      'SELECT email FROM users WHERE email = ? AND deleted_at IS NULL',
       [email],
     );
 
