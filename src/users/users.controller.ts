@@ -1,8 +1,9 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { Controller, Get, Inject, Req, UseGuards } from '@nestjs/common';
 import { Pool } from 'mysql2/promise';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { UserDto } from './dto/user.dto';
 import { UsersService } from './users.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('users')
 @Controller('users')
@@ -21,5 +22,18 @@ export class UsersController {
   })
   async findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '내 프로필 조회' })
+  @ApiResponse({
+    status: 200,
+    description: '내 정보 조회',
+    type: UserDto,
+  })
+  async findMyProfile(@Req() req: Request) {
+    const userId = req['user'].userId;
+    return this.usersService.findMyProfile(userId);
   }
 }
