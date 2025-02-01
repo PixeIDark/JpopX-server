@@ -11,6 +11,7 @@ import { ArtistsModule } from './artists/artists.module';
 import { SongsModule } from './songs/songs.module';
 import { LyricsModule } from './lyrics/lyrics.module';
 import { KaraokeNumbersModule } from './karaoke-numbers/karaoke-numbers.module';
+import { FavoritesModule } from './favorites/favorites.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { KaraokeNumbersModule } from './karaoke-numbers/karaoke-numbers.module';
     SongsModule,
     LyricsModule,
     KaraokeNumbersModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
 })
