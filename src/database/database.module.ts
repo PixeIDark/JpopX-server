@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { createPool } from 'mysql2/promise';
+import { createPool, Pool } from 'mysql2/promise';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -8,7 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     {
       provide: 'DATABASE_CONNECTION',
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
+      useFactory: async (configService: ConfigService): Promise<Pool> => {
         return createPool({
           host: configService.get('DATABASE_HOST'),
           port: configService.get('DATABASE_PORT'),
@@ -24,4 +24,5 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   ],
   exports: ['DATABASE_CONNECTION'],
 })
-export class DatabaseModule {}
+export class DatabaseModule {
+}
