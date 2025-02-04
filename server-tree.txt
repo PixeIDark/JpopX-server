@@ -40,6 +40,15 @@ src
 |       `-- cloudinary.entity.ts
 |-- database
 |   `-- database.module.ts
+|-- favorites
+|   |-- dto
+|   |   |-- create-favorite.dto.ts
+|   |   `-- update-favorite.dto.ts
+|   |-- entities
+|   |   `-- favorite.entity.ts
+|   |-- favorites.controller.ts
+|   |-- favorites.module.ts
+|   `-- favorites.service.ts
 |-- karaoke-numbers
 |   |-- dto
 |   |   |-- create-karaoke-number-for-complete.dto.ts
@@ -98,4 +107,4 @@ src
     |-- users.module.ts
     `-- users.service.ts
 
-32 directories, 66 files
+35 directories, 72 files

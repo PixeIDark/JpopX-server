@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
 @Injectable()
@@ -71,6 +71,16 @@ export class FavoritesService {
 
   async addSongToList(userId: number, listId: number, songId: number) {
     await this.validateListOwnership(userId, listId);
+
+    // 중복 체크
+    const [existingSongs] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT id FROM favorite_songs WHERE list_id = ? AND song_id = ?',
+      [listId, songId],
+    );
+
+    if (existingSongs.length > 0) {
+      throw new BadRequestException('이미 즐겨찾기 목록에 존재하는 곡입니다.');
+    }
 
     const [maxOrderResult] = await this.connection.execute<RowDataPacket[]>(
       'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_songs WHERE list_id = ?',
