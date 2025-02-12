@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import { Pool, ResultSetHeader, RowDataPacket, Connection } from 'mysql2/promise';
 
 @Injectable()
 export class FavoritesService {
@@ -50,21 +50,35 @@ export class FavoritesService {
   }
 
   async deleteFavoriteList(userId: number, listId: number) {
-    await this.validateListOwnership(userId, listId);
+    const connection = await this.connection.getConnection();
 
-    await this.connection.execute(
-      'UPDATE favorite_lists SET deleted_at = NOW() WHERE id = ?',
-      [listId],
-    );
+    try {
+      await connection.beginTransaction();
+      await this.validateListOwnership(userId, listId);
 
-    return { message: '즐겨찾기 목록이 삭제되었습니다.' };
+      // 모든 곡 인기도 감소
+      await this.updateMultipleSongsPopularity(connection, listId, false);
+
+      // 목록 삭제
+      await connection.execute(
+        'UPDATE favorite_lists SET deleted_at = NOW() WHERE id = ?',
+        [listId],
+      );
+
+      await connection.commit();
+      return { message: '즐겨찾기 목록이 삭제되었습니다.' };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   async addSongToList(userId: number, listId: number, songId: number) {
     const connection = await this.connection.getConnection();
 
     try {
-      // 트랜잭션 시작
       await connection.beginTransaction();
 
       // 1. 권한 체크
@@ -85,14 +99,17 @@ export class FavoritesService {
 
       const songData = songRows[0];
 
-      // 3. 현재 최대 order 값 조회
+      // 3. 인기도 증가
+      await this.updateSongPopularity(connection, songId, true);
+
+      // 4. 현재 최대 order 값 조회
       const [maxOrderResult] = await connection.execute<RowDataPacket[]>(
         'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_songs WHERE list_id = ?',
         [listId],
       );
       const maxOrder = maxOrderResult[0].maxOrder;
 
-      // 4. favorite_songs에 추가
+      // 5. favorite_songs에 추가
       const [result] = await connection.execute<ResultSetHeader>(
         `INSERT INTO favorite_songs (
         list_id, song_id, title_ko, title_ja, title_en,
@@ -136,7 +153,7 @@ export class FavoritesService {
     try {
       // favorite_id로 list_id를 찾고, 권한 확인
       const [favoriteRows] = await connection.execute<RowDataPacket[]>(
-        `SELECT fs.list_id, fs.order
+        `SELECT fs.list_id, fs.order, fs.song_id
          FROM favorite_songs fs
          INNER JOIN favorite_lists fl ON fs.list_id = fl.id
          WHERE fs.id = ? AND fl.user_id = ? AND fl.deleted_at IS NULL`,
@@ -147,19 +164,21 @@ export class FavoritesService {
         throw new ForbiddenException('해당 즐겨찾기 항목에 대한 권한이 없습니다.');
       }
 
-      const { list_id, order } = favoriteRows[0];
+      const { list_id, order, song_id } = favoriteRows[0];
 
-      // 트랜잭션 시작
       await connection.beginTransaction();
 
       try {
-        // 항목 삭제
+        // 1. 인기도 감소
+        await this.updateSongPopularity(connection, song_id, false);
+
+        // 2. 항목 삭제
         await connection.execute(
           'DELETE FROM favorite_songs WHERE id = ?',
           [favoriteId],
         );
 
-        // 뒤따르는 항목들의 order 값 감소
+        // 3. 뒤따르는 항목들의 order 값 감소
         await connection.execute(
           'UPDATE favorite_songs SET `order` = `order` - 1 WHERE list_id = ? AND `order` > ?',
           [list_id, order],
@@ -247,6 +266,33 @@ export class FavoritesService {
     } finally {
       connection.release();
     }
+  }
+
+  // 헬퍼 함수
+  private async updateSongPopularity(
+    connection: Connection,
+    songId: number,
+    increment: boolean,
+  ) {
+    await connection.execute(
+      'UPDATE songs SET popularity_score = GREATEST(0, popularity_score + ?) WHERE id = ?',
+      [increment ? 1 : -1, songId],
+    );
+  }
+
+  // 헬퍼 함수
+  private async updateMultipleSongsPopularity(
+    connection: Connection,
+    listId: number,
+    increment: boolean,
+  ) {
+    await connection.execute(
+      `UPDATE songs s
+       INNER JOIN favorite_songs fs ON s.id = fs.song_id
+       SET s.popularity_score = GREATEST(0, s.popularity_score + ?)
+       WHERE fs.list_id = ?`,
+      [increment ? 1 : -1, listId],
+    );
   }
 
   private async validateListOwnership(userId: number, listId: number) {
