@@ -2136,3 +2136,2490 @@ async function bootstrap() {
 
 bootstrap();
 
+--- src\artists\dto\create-artist.dto.ts ---
+export class CreateArtistDto {}
+
+
+--- src\artists\dto\update-artist.dto.ts ---
+import { PartialType } from '@nestjs/swagger';
+import { CreateArtistDto } from './create-artist.dto';
+
+export class UpdateArtistDto extends PartialType(CreateArtistDto) {}
+
+
+--- src\artists\entities\artist.entity.ts ---
+export class Artist {}
+
+
+--- src\artists\artists.controller.ts ---
+import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SearchService } from '../search/search.service';
+import { SongsService } from '../songs/songs.service';
+import { ArtistsService } from './artists.service';
+
+@ApiTags('artists')
+@Controller('artists')
+export class ArtistsController {
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly songsService: SongsService,
+    private readonly artistsService: ArtistsService,
+  ) {
+  }
+
+  @Post()
+  @ApiOperation({ summary: '가수 생성' })
+  async create(@Body() createArtistDto: {
+    name_ko: string;
+    name_ja?: string;
+    name_en?: string;
+    profile_image_url?: string;
+    is_group?: boolean;
+  }) {
+    const savedArtist = await this.artistsService.create(createArtistDto);
+    return savedArtist;
+  }
+
+  @Get()
+  @ApiOperation({ summary: '가수 목록 조회' })
+  async findAll() {
+    const artists = await this.artistsService.findAll();
+    return artists;
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '특정 가수 조회' })
+  async findOne(@Param('id') id: string) {
+    const artist = await this.artistsService.findOne(id);
+    return artist;
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: '가수 정보 수정' })
+  async update(@Param('id') id: string, @Body() updateArtistDto: {
+    name_ko?: string;
+    name_ja?: string;
+    name_en?: string;
+    profile_image_url?: string;
+    is_group?: boolean;
+  }) {
+    const updatedArtist = await this.artistsService.update(id, updateArtistDto);
+
+    const songs = await this.songsService.findByArtistId(id);
+    for (const song of songs) {
+      await this.searchService.updateSearchIndex(
+        song.id,
+        song,
+        updatedArtist,
+      );
+    }
+
+    return updatedArtist;
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '가수 삭제' })
+  async remove(@Param('id') id: string) {
+    const result = await this.artistsService.remove(id);
+    return result;
+  }
+}
+
+--- src\artists\artists.module.ts ---
+import { forwardRef, Module } from '@nestjs/common';
+import { ArtistsController } from './artists.controller';
+import { ArtistsService } from './artists.service';
+import { SearchModule } from '../search/search.module';
+import { DatabaseModule } from '../database/database.module';
+import { SongsModule } from '../songs/songs.module';
+
+@Module({
+  imports: [
+    DatabaseModule,
+    SearchModule,
+    forwardRef(() => SongsModule),
+  ],
+  controllers: [ArtistsController],
+  providers: [ArtistsService],
+  exports: [ArtistsService],
+})
+export class ArtistsModule {
+}
+
+--- src\artists\artists.service.ts ---
+import { Inject, Injectable } from '@nestjs/common';
+import { Connection, ResultSetHeader } from 'mysql2/promise';
+import { RowDataPacket } from 'mysql2';  // ResultSetHeader 추가
+
+@Injectable()
+export class ArtistsService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+  ) {
+  }
+
+  async create(createArtistDto: {
+    name_ko: string;
+    name_ja?: string;
+    name_en?: string;
+    profile_image_url?: string;
+    is_group?: boolean;
+  }) {
+    const query = `
+      INSERT INTO artists 
+        (name_ko, name_ja, name_en, profile_image_url, is_group)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    const [result] = await this.connection.execute<ResultSetHeader>(query, [
+      createArtistDto.name_ko,
+      createArtistDto.name_ja,
+      createArtistDto.name_en,
+      createArtistDto.profile_image_url,
+      createArtistDto.is_group,
+    ]);
+
+    return { id: result.insertId, ...createArtistDto };
+  }
+
+  async findAll() {
+    const [rows] = await this.connection.query<RowDataPacket[]>('SELECT * FROM artists');
+    return rows;
+  }
+
+  async findOne(id: string | number) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    const [rows] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT * FROM artists WHERE id = ?',
+      [numericId],
+    );
+    return rows[0];
+  }
+
+  async update(id: string | number, updateArtistDto: {  // string도 받을 수 있게 수정
+    name_ko?: string;
+    name_ja?: string;
+    name_en?: string;
+    profile_image_url?: string;
+    is_group?: boolean;
+  }) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    const query = `
+      UPDATE artists
+      SET 
+        name_ko = COALESCE(?, name_ko),
+        name_ja = COALESCE(?, name_ja),
+        name_en = COALESCE(?, name_en),
+        profile_image_url = COALESCE(?, profile_image_url),
+        is_group = COALESCE(?, is_group)
+      WHERE id = ?
+    `;
+
+    await this.connection.execute(query, [
+      updateArtistDto.name_ko,
+      updateArtistDto.name_ja,
+      updateArtistDto.name_en,
+      updateArtistDto.profile_image_url,
+      updateArtistDto.is_group,
+      numericId,
+    ]);
+
+    return this.findOne(numericId);
+  }
+
+  async remove(id: string | number) {  // string도 받을 수 있게 수정
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    await this.connection.execute('DELETE FROM artists WHERE id = ?', [numericId]);
+    return { id: numericId };
+  }
+}
+
+--- src\auth\dto\login.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString } from 'class-validator';
+
+export class LoginDto {
+  @ApiProperty({
+    example: 'd@d.com',
+    description: 'User email',
+  })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({
+    example: '12341234',
+    description: 'User password',
+  })
+  @IsString()
+  password: string;
+}
+
+
+--- src\auth\dto\logout.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+
+export class LogoutDto {
+  @ApiProperty({
+    example: '123',
+    description: 'User ID',
+  })
+  userId: number;
+}
+
+--- src\auth\dto\signup.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength } from 'class-validator';
+
+export class SignUpDto {
+  @ApiProperty({
+    example: 'd@d.com',
+    description: 'User email',
+  })
+  @IsEmail({}, { message: '유효한 이메일을 입력해주세요' })
+  email: string;
+
+  @ApiProperty({
+    example: '12341234',
+    description: 'User password - minimum 8 characters',
+  })
+  @IsString()
+  @MinLength(8, { message: '비밀번호는 최소 8자 이상이어야 합니다' })
+  password: string;
+
+  @ApiProperty({
+    example: '강건마',
+    description: 'User name',
+  })
+  @IsString({ message: '이름을 입력해주세요' })
+  name: string;
+}
+
+
+--- src\auth\entities\auth.entity.ts ---
+export class Auth {}
+
+
+--- src\auth\refresh-token\dto\refresh-token.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
+
+export class RefreshTokenDto {
+  @ApiProperty({
+    description: 'Refresh token',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @IsString()
+  refreshToken: string;
+}
+
+
+--- src\auth\refresh-token\entities\refresh-token.entity.ts ---
+export class RefreshToken {}
+
+
+--- src\auth\refresh-token\refresh-token.controller.ts ---
+import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RefreshTokenService } from './refresh-token.service';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+
+@ApiTags('auth/refresh')
+@Controller('auth/refresh')
+export class RefreshTokenController {
+  constructor(private readonly refreshTokenService: RefreshTokenService) {
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'Token refresh successful' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    try {
+      return await this.refreshTokenService.refreshToken(refreshTokenDto.refreshToken);
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+}
+
+--- src\auth\refresh-token\refresh-token.service.ts ---
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Connection } from 'mysql2/promise';
+
+@Injectable()
+export class RefreshTokenService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+    private readonly jwtService: JwtService,
+  ) {
+  }
+
+  async refreshToken(refreshToken: string) {
+    // 1. Verify refresh token
+    let payload;
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // 2. Check if refresh token exists in database
+    const [users] = await this.connection.execute(
+      'SELECT * FROM users WHERE id = ? AND refresh_token = ? AND deleted_at IS NULL',
+      [payload.userId, refreshToken],
+    );
+
+    if (!users[0]) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
+
+    // 3. Generate new token pair
+    const newAccessToken = this.jwtService.sign(
+      { userId: payload.userId, email: payload.email },
+      { expiresIn: '30m' },
+    );
+
+    const newRefreshToken = this.jwtService.sign(
+      { userId: payload.userId, email: payload.email },
+      { expiresIn: '7d' },
+    );
+
+    // 4. Update tokens in database
+    await this.connection.execute(
+      'UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?',
+      [newAccessToken, newRefreshToken, payload.userId],
+    );
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    };
+  }
+}
+
+--- src\auth\auth.controller.ts ---
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { SignUpDto } from './dto/signup.dto';
+import { LoginDto } from './dto/login.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { Request } from 'express';
+
+@ApiTags('auth')
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {
+  }
+
+  @Post('signup')
+  @ApiOperation({ summary: '회원가입' })
+  @ApiResponse({ status: 201, description: '회원가입 성공' })
+  @ApiResponse({ status: 400, description: '실패' })
+  async signup(@Body() signUpDto: SignUpDto) {
+    return this.authService.signup(
+      signUpDto.email,
+      signUpDto.password,
+      signUpDto.name,
+    );
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: '로그인' })
+  @ApiResponse({ status: 200, description: '로그인 성공' })
+  @ApiResponse({ status: 400, description: '실패' })
+  async login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto.email, loginDto.password);
+  }
+
+  @Post('logout')
+  @ApiOperation({ summary: '로그아웃' })
+  @ApiResponse({ status: 200, description: '로그아웃 성공' })
+  @UseGuards(JwtAuthGuard)
+  async logout(@Req() req: Request) {
+    return this.authService.logout(req.user.userId);
+  }
+}
+
+
+--- src\auth\auth.module.ts ---
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { DatabaseModule } from '../database/database.module';
+import { RefreshTokenController } from './refresh-token/refresh-token.controller';
+import { RefreshTokenService } from './refresh-token/refresh-token.service';
+
+@Module({
+  imports: [
+    DatabaseModule, // 여기에 DatabaseModule 추가
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get('JWT_SECRET'),
+        signOptions: { expiresIn: '30m' },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+  controllers: [AuthController, RefreshTokenController],
+  providers: [AuthService, RefreshTokenService],
+  exports: [AuthService],
+})
+export class AuthModule {
+}
+
+
+--- src\auth\auth.service.ts ---
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Pool } from 'mysql2/promise';
+import * as bcrypt from 'bcrypt';
+import { User } from '../types/users';
+
+@Injectable()
+export class AuthService {
+  private s: string;
+
+  constructor(
+    @Inject('DATABASE_CONNECTION') private connection: Pool,
+    private readonly jwtService: JwtService,
+  ) {
+  }
+
+  async signup(email: string, password: string, name: string) {
+    const [existingUsers] = await this.connection.execute<User[]>(
+      'SELECT email FROM users WHERE email = ? AND deleted_at IS NULL',
+      [email],
+    );
+
+    if (existingUsers.length > 0) {
+      throw new UnauthorizedException('이미 이메일이 존재');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await this.connection.execute(
+      'INSERT INTO users (email, password, name, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+      [email, hashedPassword, name],
+    );
+
+    return { message: '회원가입 성공' };
+  }
+
+  async login(email: string, password: string) {
+    const [users] = await this.connection.execute<User[]>(
+      'SELECT * FROM users WHERE email = ? AND deleted_at IS NULL',
+      [email],
+    );
+
+    const user = users[0];
+
+    if (!user) {
+      throw new UnauthorizedException('이메일 또는 비밀번호가 틀렸습니다');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('이메일 또는 비밀번호가 틀렸습니다');
+    }
+
+    this.s = this.jwtService.sign(
+      { userId: user.id, email: user.email },
+      { expiresIn: '30m' },
+    );
+    const accessToken = this.s;
+
+    const refreshToken = this.jwtService.sign(
+      { userId: user.id, email: user.email },
+      { expiresIn: '7d' },
+    );
+
+    await this.connection.execute(
+      'UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?',
+      [accessToken, refreshToken, user.id],
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    };
+  }
+
+  async logout(userId: number) {
+    await this.connection.execute(
+      'UPDATE users SET access_token = NULL, refresh_token = NULL WHERE id = ?',
+      [userId],
+    );
+
+    return { message: '로그아웃 성공' };
+  }
+}
+
+
+--- src\auth\jwt-auth.guard.ts ---
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
+
+
+@Injectable()
+export class JwtAuthGuard implements CanActivate {
+  constructor(private jwtService: JwtService) {
+  }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const token = this.extractTokenFromHeader(request);
+
+    if (!token) {
+      throw new UnauthorizedException();
+    }
+
+    try {
+      request['user'] = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET,
+      });
+    } catch {
+      throw new UnauthorizedException();
+    }
+
+    return true;
+  }
+
+  private extractTokenFromHeader(request: Request): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}
+
+
+--- src\cloudinary\dto\create-cloudinary.dto.ts ---
+export class CreateCloudinaryDto {}
+
+
+--- src\cloudinary\dto\update-cloudinary.dto.ts ---
+import { PartialType } from '@nestjs/swagger';
+import { CreateCloudinaryDto } from './create-cloudinary.dto';
+
+export class UpdateCloudinaryDto extends PartialType(CreateCloudinaryDto) {}
+
+
+--- src\cloudinary\entities\cloudinary.entity.ts ---
+export class Cloudinary {}
+
+
+--- src\cloudinary\cloudinary.controller.ts ---
+import { BadRequestException, Controller, Post, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { CloudinaryService } from './cloudinary.service';
+import { memoryStorage } from 'multer';  // 추가
+
+@Controller('upload')
+export class CloudinaryController {
+  constructor(private readonly cloudinaryService: CloudinaryService) {
+  }
+
+  @Post('single')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+  }))
+  async uploadSingle(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('이미지 파일을 업로드 해주세요.');
+    }
+    const url = await this.cloudinaryService.uploadImage(file);
+    return { url };
+  }
+
+  @Post('multiple')
+  @UseInterceptors(FilesInterceptor('files', 50, {
+    storage: memoryStorage(),
+  }))
+  async uploadMultiple(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('하나 이상의 이미지 파일을 업로드 해주세요.');
+    }
+    const urls = await this.cloudinaryService.uploadMultipleImages(files);
+    return { urls };
+  }
+}
+
+--- src\cloudinary\cloudinary.module.ts ---
+import { Module } from '@nestjs/common';
+import { CloudinaryService } from './cloudinary.service';
+import { CloudinaryController } from './cloudinary.controller';
+
+@Module({
+  controllers: [CloudinaryController],
+  providers: [CloudinaryService],
+  exports: [CloudinaryService],
+})
+export class CloudinaryModule {
+}
+
+--- src\cloudinary\cloudinary.service.ts ---
+import { Injectable } from '@nestjs/common';
+import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
+
+@Injectable()
+export class CloudinaryService {
+  constructor() {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
+
+  async uploadImage(file: Express.Multer.File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: process.env.CLOUDINARY_FOLDER },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result.secure_url);
+        },
+      );
+      Readable.from(file.buffer).pipe(uploadStream);
+    });
+  }
+
+  async uploadMultipleImages(files: Express.Multer.File[]): Promise<string[]> {
+    const uploadPromises = files.map(file => this.uploadImage(file));
+    return Promise.all(uploadPromises);
+  }
+}
+
+--- src\database\database.module.ts ---
+import { Module } from '@nestjs/common';
+import { createPool, Pool } from 'mysql2/promise';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
+@Module({
+  imports: [ConfigModule],
+  providers: [
+    {
+      provide: 'DATABASE_CONNECTION',
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService): Promise<Pool> => {
+        return createPool({
+          host: configService.get('DATABASE_HOST'),
+          port: configService.get('DATABASE_PORT'),
+          user: 'root',
+          password: configService.get('DATABASE_PASSWORD'),
+          database: 'minchelin',
+          waitForConnections: true,
+          connectionLimit: 10,
+          queueLimit: 0,
+        });
+      },
+    },
+  ],
+  exports: ['DATABASE_CONNECTION'],
+})
+export class DatabaseModule {
+}
+
+--- src\favorites\dto\create-favorite-song.dto.ts ---
+export class CreateFavoriteSongDto {}
+
+
+--- src\favorites\dto\update-favorite.dto.ts ---
+import { PartialType } from '@nestjs/swagger';
+import { CreateFavoriteSongDto } from './create-favorite.dto';
+
+export class UpdateFavoriteDto extends PartialType(CreateFavoriteSongDto) {}
+
+
+--- src\favorites\entities\favorite.entity.ts ---
+export class Favorite {}
+
+
+--- src\favorites\favorites.controller.ts ---
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FavoritesService } from './favorites.service';
+import { Request } from 'express';
+
+@ApiTags('favorites')
+@Controller('favorites')
+@UseGuards(JwtAuthGuard)
+export class FavoritesController {
+  constructor(private readonly favoritesService: FavoritesService) {
+  }
+
+  @Get('lists')
+  @ApiOperation({ summary: '즐겨찾기 목록 조회' })
+  async getFavoriteLists(@Req() req: Request) {
+    return this.favoritesService.getFavoriteLists(req.user.userId);
+  }
+
+  @Get('lists/:listId/songs')
+  @ApiOperation({ summary: '특정 즐겨찾기 목록의 곡 목록 조회' })
+  async getFavoriteListSongs(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+  ) {
+    return this.favoritesService.getFavoriteListSongs(req.user.userId, parseInt(listId));
+  }
+
+  @Post('lists')
+  @ApiOperation({ summary: '즐겨찾기 목록 생성' })
+  async createFavoriteList(
+    @Req() req: Request,
+    @Body() data: { name: string },
+  ) {
+    return this.favoritesService.createFavoriteList(req.user.userId, data.name);
+  }
+
+  @Put('lists/:listId')
+  @ApiOperation({ summary: '즐겨찾기 목록 이름 수정' })
+  async updateFavoriteList(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+    @Body() data: { name: string },
+  ) {
+    return this.favoritesService.updateFavoriteList(req.user.userId, parseInt(listId), data.name);
+  }
+
+  @Delete('lists/:listId')
+  @ApiOperation({ summary: '즐겨찾기 목록 삭제' })
+  async deleteFavoriteList(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+  ) {
+    return this.favoritesService.deleteFavoriteList(req.user.userId, parseInt(listId));
+  }
+
+  @Post('lists/:listId/songs')
+  @ApiOperation({ summary: '즐겨찾기 목록에 곡 추가' })
+  async addSongToList(
+    @Req() req: Request,
+    @Param('listId') listId: string,
+    @Body() data: { songId: number },
+  ) {
+    return this.favoritesService.addSongToList(
+      req.user.userId,
+      parseInt(listId),
+      data.songId,
+    );
+  }
+
+  @Delete('songs/:favoriteId')
+  @ApiOperation({ summary: '즐겨찾기에서 곡 제거' })
+  async removeSongFromList(
+    @Req() req: Request,
+    @Param('favoriteId') favoriteId: string,
+  ) {
+    return this.favoritesService.removeSongFromList(req.user.userId, parseInt(favoriteId));
+  }
+
+  @Put('songs/reorder')
+  @ApiOperation({ summary: '즐겨찾기 곡 순서 변경' })
+  async reorderSong(
+    @Req() req: Request,
+    @Body() data: { favoriteId: number; newOrder: number },
+  ) {
+    return this.favoritesService.reorderSong(
+      req.user.userId,
+      data.favoriteId,
+      data.newOrder,
+    );
+  }
+}
+
+--- src\favorites\favorites.module.ts ---
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from '../database/database.module';
+import { FavoritesController } from './favorites.controller';
+import { FavoritesService } from './favorites.service';
+import { JwtModule } from '@nestjs/jwt';
+
+@Module({
+  imports: [DatabaseModule, JwtModule],
+  controllers: [FavoritesController],
+  providers: [FavoritesService],
+})
+export class FavoritesModule {
+}
+
+--- src\favorites\favorites.service.ts ---
+import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+
+@Injectable()
+export class FavoritesService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Pool,
+  ) {
+  }
+
+  async getFavoriteLists(userId: number) {
+    const [lists] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT * FROM favorite_lists WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC',
+      [userId],
+    );
+    return lists;
+  }
+
+  async getFavoriteListSongs(userId: number, listId: number) {
+    await this.validateListOwnership(userId, listId);
+
+    const [songs] = await this.connection.execute<RowDataPacket[]>(
+      `SELECT 
+        fs.id as favorite_id,
+        fs.song_id,
+        fs.order,
+        s.title_ko,
+        s.title_ja,
+        s.title_en,
+        s.thumbnail_url
+      FROM favorite_songs fs
+      INNER JOIN songs s ON fs.song_id = s.id
+      WHERE fs.list_id = ?
+      ORDER BY fs.order ASC`,
+      [listId],
+    );
+
+    return songs;
+  }
+
+  async createFavoriteList(userId: number, name: string) {
+    const [result] = await this.connection.execute<ResultSetHeader>(
+      'INSERT INTO favorite_lists (user_id, name) VALUES (?, ?)',
+      [userId, name],
+    );
+    return { id: result.insertId, name };
+  }
+
+  async updateFavoriteList(userId: number, listId: number, name: string) {
+    await this.validateListOwnership(userId, listId);
+
+    await this.connection.execute(
+      'UPDATE favorite_lists SET name = ? WHERE id = ?',
+      [name, listId],
+    );
+
+    return { id: listId, name };
+  }
+
+  async deleteFavoriteList(userId: number, listId: number) {
+    await this.validateListOwnership(userId, listId);
+
+    await this.connection.execute(
+      'UPDATE favorite_lists SET deleted_at = NOW() WHERE id = ?',
+      [listId],
+    );
+
+    return { message: '즐겨찾기 목록이 삭제되었습니다.' };
+  }
+
+  async addSongToList(userId: number, listId: number, songId: number) {
+    await this.validateListOwnership(userId, listId);
+
+    const [maxOrderResult] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_songs WHERE list_id = ?',
+      [listId],
+    );
+    const maxOrder = maxOrderResult[0].maxOrder;
+
+    const [result] = await this.connection.execute<ResultSetHeader>(
+      'INSERT INTO favorite_songs (list_id, song_id, `order`) VALUES (?, ?, ?)',
+      [listId, songId, maxOrder + 1],
+    );
+
+    return {
+      favorite_id: result.insertId,
+      message: '곡이 즐겨찾기에 추가되었습니다.',
+    };
+  }
+
+  async removeSongFromList(userId: number, favoriteId: number) {
+    const connection = await this.connection.getConnection();
+
+    try {
+      // favorite_id로 list_id를 찾고, 권한 확인
+      const [favoriteRows] = await connection.execute<RowDataPacket[]>(
+        `SELECT fs.list_id, fs.order
+         FROM favorite_songs fs
+         INNER JOIN favorite_lists fl ON fs.list_id = fl.id
+         WHERE fs.id = ? AND fl.user_id = ? AND fl.deleted_at IS NULL`,
+        [favoriteId, userId],
+      );
+
+      if (!favoriteRows[0]) {
+        throw new ForbiddenException('해당 즐겨찾기 항목에 대한 권한이 없습니다.');
+      }
+
+      const { list_id, order } = favoriteRows[0];
+
+      // 트랜잭션 시작
+      await connection.beginTransaction();
+
+      try {
+        // 항목 삭제
+        await connection.execute(
+          'DELETE FROM favorite_songs WHERE id = ?',
+          [favoriteId],
+        );
+
+        // 뒤따르는 항목들의 order 값 감소
+        await connection.execute(
+          'UPDATE favorite_songs SET `order` = `order` - 1 WHERE list_id = ? AND `order` > ?',
+          [list_id, order],
+        );
+
+        await connection.commit();
+        return { message: '곡이 즐겨찾기에서 제거되었습니다.' };
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
+  }
+
+  async reorderSong(userId: number, favoriteId: number, newOrder: number) {
+    const connection = await this.connection.getConnection();
+
+    try {
+      // favorite_id로 현재 order와 list_id를 찾고, 권한 확인
+      const [favorites] = await connection.execute<RowDataPacket[]>(
+        `SELECT fs.id, fs.list_id, fs.order
+         FROM favorite_songs fs
+         INNER JOIN favorite_lists fl ON fs.list_id = fl.id
+         WHERE fs.id = ? AND fl.user_id = ? AND fl.deleted_at IS NULL`,
+        [favoriteId, userId],
+      );
+
+      if (!favorites[0]) {
+        throw new ForbiddenException('해당 즐겨찾기 항목에 대한 권한이 없습니다.');
+      }
+
+      const { list_id, order: currentOrder } = favorites[0];
+
+      // 최대 order 값 확인
+      const [maxOrderResult] = await connection.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as maxOrder FROM favorite_songs WHERE list_id = ?',
+        [list_id],
+      );
+
+      const maxOrder = maxOrderResult[0].maxOrder;
+
+      // newOrder가 범위를 벗어나지 않도록 보정
+      const targetOrder = Math.max(1, Math.min(newOrder, maxOrder));
+
+      // 트랜잭션 시작
+      await connection.beginTransaction();
+
+      try {
+        if (currentOrder < targetOrder) {
+          // 위에서 아래로 이동: currentOrder와 targetOrder 사이의 항목들을 한 칸씩 위로
+          await connection.execute(
+            `UPDATE favorite_songs 
+             SET \`order\` = \`order\` - 1 
+             WHERE list_id = ? 
+             AND \`order\` > ? 
+             AND \`order\` <= ?`,
+            [list_id, currentOrder, targetOrder],
+          );
+        } else if (currentOrder > targetOrder) {
+          // 아래에서 위로 이동: targetOrder와 currentOrder 사이의 항목들을 한 칸씩 아래로
+          await connection.execute(
+            `UPDATE favorite_songs 
+             SET \`order\` = \`order\` + 1 
+             WHERE list_id = ? 
+             AND \`order\` >= ? 
+             AND \`order\` < ?`,
+            [list_id, targetOrder, currentOrder],
+          );
+        }
+
+        // 드래그한 항목을 새 위치로 이동
+        await connection.execute(
+          'UPDATE favorite_songs SET `order` = ? WHERE id = ?',
+          [targetOrder, favoriteId],
+        );
+
+        await connection.commit();
+        return { message: '곡 순서가 변경되었습니다.' };
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
+  }
+
+  private async validateListOwnership(userId: number, listId: number) {
+    const [lists] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT id FROM favorite_lists WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+      [listId, userId],
+    );
+
+    if (!lists[0]) {
+      throw new ForbiddenException('해당 즐겨찾기 목록에 대한 권한이 없습니다.');
+    }
+  }
+}
+
+--- src\karaoke-numbers\dto\create-karaoke-number-for-complete.dto.ts ---
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
+
+export class CreateKaraokeNumberForCompleteDto {
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  tj_number?: string;
+
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  kumyoung_number?: string;
+}
+
+--- src\karaoke-numbers\dto\create-karaoke-number.dto.ts ---
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
+
+export class CreateKaraokeNumberDto {
+  @ApiProperty({ description: '노래 ID' })
+  @IsNumber()
+  song_id: number;
+
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  tj_number?: string;
+
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsOptional()
+  @IsString()
+  kumyoung_number?: string;
+}
+
+--- src\karaoke-numbers\dto\update-karaoke-number.dto.ts ---
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional } from 'class-validator';
+
+export class UpdateKaraokeNumberDto {
+  @ApiPropertyOptional({ description: 'TJ 노래방 번호' })
+  @IsString()
+  @IsOptional()
+  tj_number?: string;
+
+  @ApiPropertyOptional({ description: '금영 노래방 번호' })
+  @IsString()
+  @IsOptional()
+  kumyoung_number?: string;
+}
+
+--- src\karaoke-numbers\entities\karaoke-number.entity.ts ---
+export class KaraokeNumber {}
+
+
+--- src\karaoke-numbers\karaoke-numbers.controller.ts ---
+import { Controller, Post, Put, Body, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { KaraokeNumbersService } from './karaoke-numbers.service';
+import { CreateKaraokeNumberDto } from './dto/create-karaoke-number.dto';
+import { UpdateKaraokeNumberDto } from './dto/update-karaoke-number.dto';
+
+@ApiTags('karaoke-numbers')
+@Controller('karaoke-numbers')
+export class KaraokeNumbersController {
+  constructor(
+    private readonly karaokeNumbersService: KaraokeNumbersService,
+  ) {
+  }
+
+  @Post()
+  @ApiOperation({ summary: '노래방 번호 생성' })
+  async create(@Body() createDto: CreateKaraokeNumberDto) {
+    return await this.karaokeNumbersService.create(createDto);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: '노래방 번호 수정' })
+  async update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateKaraokeNumberDto,
+  ) {
+    return await this.karaokeNumbersService.update(id, updateDto);
+  }
+}
+
+--- src\karaoke-numbers\karaoke-numbers.module.ts ---
+import { Module } from '@nestjs/common';
+import { KaraokeNumbersController } from './karaoke-numbers.controller';
+import { KaraokeNumbersService } from './karaoke-numbers.service';
+import { DatabaseModule } from '../database/database.module';
+
+@Module({
+  imports: [DatabaseModule],
+  controllers: [KaraokeNumbersController],
+  providers: [KaraokeNumbersService],
+  exports: [KaraokeNumbersService],
+})
+export class KaraokeNumbersModule {
+}
+
+--- src\karaoke-numbers\karaoke-numbers.service.ts ---
+import { Inject, Injectable } from '@nestjs/common';
+import { Connection, ResultSetHeader } from 'mysql2/promise';
+import { CreateKaraokeNumberDto } from './dto/create-karaoke-number.dto';
+import { UpdateKaraokeNumberDto } from './dto/update-karaoke-number.dto';
+
+@Injectable()
+export class KaraokeNumbersService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+  ) {
+  }
+
+  async create(createDto: CreateKaraokeNumberDto) {
+    const query = `
+    INSERT INTO karaoke_numbers 
+      (song_id, tj_number, kumyoung_number)
+    VALUES (?, ?, ?)
+  `;
+
+    const [result] = await this.connection.execute<ResultSetHeader>(query, [
+      createDto.song_id,
+      createDto.tj_number,
+      createDto.kumyoung_number,
+    ]);
+
+    return { id: result.insertId, ...createDto };
+  }
+
+  async update(id: string | number, updateDto: UpdateKaraokeNumberDto) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+
+    const query = `
+    UPDATE karaoke_numbers
+    SET 
+      tj_number = COALESCE(?, tj_number),
+      kumyoung_number = COALESCE(?, kumyoung_number)
+    WHERE id = ?
+  `;
+
+    await this.connection.execute(query, [
+      updateDto.tj_number,
+      updateDto.kumyoung_number,
+      numericId,
+    ]);
+
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM karaoke_numbers WHERE id = ?',
+      [numericId],
+    );
+
+    return rows[0];
+  }
+
+  async findBySongId(songId: string | number) {
+    const numericId = typeof songId === 'string' ? parseInt(songId) : songId;
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM karaoke_numbers WHERE song_id = ?',
+      [numericId],
+    );
+    return rows;
+  }
+}
+
+--- src\lyrics\dto\create-lyric.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNumber } from 'class-validator';
+
+export class CreateLyricsDto {
+  @ApiProperty({ description: '노래 ID' })
+  @IsNumber()
+  song_id: number;
+
+  @ApiProperty({ description: '가사 텍스트' })
+  @IsString()
+  lyrics_text: string;
+}
+
+--- src\lyrics\dto\create-lyrics-for-complete.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
+
+export class CreateLyricsForCompleteDto {
+  @ApiProperty({ description: '가사 텍스트' })
+  @IsString()
+  lyrics_text: string;
+}
+
+--- src\lyrics\dto\update-lyric.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
+
+export class UpdateLyricsDto {
+  @ApiProperty({ description: '가사 텍스트' })
+  @IsString()
+  lyrics_text: string;
+}
+
+--- src\lyrics\entities\lyric.entity.ts ---
+export class Lyric {}
+
+
+--- src\lyrics\lyrics.controller.ts ---
+import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SearchService } from '../search/search.service';
+import { SongsService } from '../songs/songs.service';
+import { ArtistsService } from '../artists/artists.service';
+import { LyricsService } from './lyrics.service';
+
+@ApiTags('lyrics')
+@Controller('lyrics')
+export class LyricsController {
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly songsService: SongsService,
+    private readonly artistsService: ArtistsService,
+    private readonly lyricsService: LyricsService,
+  ) {
+  }
+
+  @Post()
+  @ApiOperation({ summary: '가사 생성' })
+  async create(@Body() createLyricsDto: {
+    song_id: number;
+    lyrics_text: string;
+  }) {
+    const savedLyrics = await this.lyricsService.create(createLyricsDto);
+
+    // 가사만 업데이트
+    await this.searchService.updateSearchIndex(
+      createLyricsDto.song_id,
+      null,
+      null,
+      savedLyrics.lyrics_text,
+    );
+
+    return savedLyrics;
+  }
+
+  @Get(':songId')
+  @ApiOperation({ summary: '특정 노래의 가사 조회' })
+  async findBySongId(@Param('songId') songId: string) {
+    const lyrics = await this.lyricsService.findBySongId(songId);
+    return lyrics;
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: '가사 수정' })
+  async update(@Param('id') id: string, @Body() updateLyricsDto: {
+    lyrics_text: string;
+  }) {
+    const updatedLyrics = await this.lyricsService.update(id, updateLyricsDto);
+
+    // 가사만 업데이트
+    await this.searchService.updateSearchIndex(
+      updatedLyrics.song_id,
+      null,
+      null,
+      updateLyricsDto.lyrics_text,
+    );
+
+    return updatedLyrics;
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '가사 삭제' })
+  async remove(@Param('id') id: string) {
+    const result = await this.lyricsService.remove(id);
+    return result;
+  }
+}
+
+--- src\lyrics\lyrics.module.ts ---
+import { forwardRef, Module } from '@nestjs/common';
+import { LyricsService } from './lyrics.service';
+import { LyricsController } from './lyrics.controller';
+import { SearchModule } from '../search/search.module';
+import { DatabaseModule } from '../database/database.module';
+import { ArtistsModule } from '../artists/artists.module';
+import { SongsModule } from '../songs/songs.module';
+
+@Module({
+  imports: [DatabaseModule, SearchModule, forwardRef(() => SongsModule),
+    forwardRef(() => ArtistsModule)],
+  controllers: [LyricsController],
+  providers: [LyricsService],
+  exports: [LyricsService],
+})
+export class LyricsModule {
+}
+
+
+--- src\lyrics\lyrics.service.ts ---
+import { Inject, Injectable } from '@nestjs/common';
+import { Connection, ResultSetHeader } from 'mysql2/promise';
+
+@Injectable()
+export class LyricsService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+  ) {
+  }
+
+  async create(createLyricsDto: {
+    song_id: number;
+    lyrics_text: string;
+  }) {
+    const query = `
+     INSERT INTO lyrics (song_id, lyrics_text)
+     VALUES (?, ?)
+   `;
+
+    const [result] = await this.connection.execute<ResultSetHeader>(query, [
+      createLyricsDto.song_id,
+      createLyricsDto.lyrics_text,
+    ]);
+
+    return { id: result.insertId, ...createLyricsDto };
+  }
+
+  async findBySongId(songId: string | number) {
+    const numericId = typeof songId === 'string' ? parseInt(songId) : songId;
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM lyrics WHERE song_id = ?',
+      [numericId],
+    );
+    return rows[0];
+  }
+
+  async findOne(id: string | number) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM lyrics WHERE id = ?',
+      [numericId],
+    );
+    return rows[0];
+  }
+
+  async update(id: string | number, updateLyricsDto: {
+    lyrics_text: string;
+  }) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    const query = `
+     UPDATE lyrics
+     SET lyrics_text = ?
+     WHERE id = ?
+   `;
+
+    await this.connection.execute(query, [
+      updateLyricsDto.lyrics_text,
+      numericId,
+    ]);
+
+    return this.findOne(numericId);
+  }
+
+  async remove(id: string | number) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    await this.connection.execute('DELETE FROM lyrics WHERE id = ?', [numericId]);
+    return { id: numericId };
+  }
+}
+
+--- src\oauth\kakao\dto\kakao-user.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
+
+export class KakaoUserDto {
+  @ApiProperty({
+    example: '3824356418',
+    description: 'Kakao provider account ID',
+  })
+  @IsString()
+  providerAccountId: string;
+
+  @ApiProperty({
+    example: '강철민',
+    description: 'User name from Kakao',
+  })
+  @IsString()
+  name: string;
+
+  @ApiProperty({
+    description: 'Kakao access token',
+  })
+  @IsString()
+  accessToken: string;
+
+  @ApiProperty({
+    description: 'Kakao refresh token',
+  })
+  @IsString()
+  refreshToken: string;
+}
+
+--- src\oauth\kakao\kakao.controller.ts ---
+import { Controller, Post, Body } from '@nestjs/common';
+import { KakaoService } from './kakao.service';
+import { KakaoUserDto } from './dto/kakao-user.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+
+@ApiTags('oauth/kakao')
+@Controller('oauth/kakao')
+export class KakaoController {
+  constructor(private readonly kakaoService: KakaoService) {
+  }
+
+  @Post('user')
+  @ApiOperation({ summary: '카카오 유저 정보 저장' })
+  @ApiResponse({ status: 201, description: '저장 성공' })
+  async saveKakaoUser(@Body() kakaoUserDto: KakaoUserDto) {
+    return this.kakaoService.saveKakaoUser(kakaoUserDto);
+  }
+}
+
+--- src\oauth\kakao\kakao.module.ts ---
+import { Module } from '@nestjs/common';
+import { KakaoService } from './kakao.service';
+import { KakaoController } from './kakao.controller';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { DatabaseModule } from '../../database/database.module';
+
+@Module({
+  imports: [
+    DatabaseModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get('JWT_SECRET'),
+        signOptions: { expiresIn: '30m' },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+  controllers: [KakaoController],
+  providers: [KakaoService],
+})
+export class KakaoModule {
+}
+
+--- src\oauth\kakao\kakao.service.ts ---
+import { Injectable, Inject } from '@nestjs/common';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { JwtService } from '@nestjs/jwt';
+import { KakaoUserDto } from './dto/kakao-user.dto';
+
+@Injectable()
+export class KakaoService {
+  constructor(
+    @Inject('DATABASE_CONNECTION') private connection: Pool,
+    private readonly jwtService: JwtService,
+  ) {
+  }
+
+  async saveKakaoUser(kakaoUserDto: KakaoUserDto) {
+    const [existingUsers] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT * FROM users WHERE kakao_id = ? AND deleted_at IS NULL',
+      [kakaoUserDto.providerAccountId],
+    );
+
+    let userId;
+
+    if (!existingUsers[0]) {
+      const [result] = await this.connection.execute<ResultSetHeader>(
+        'INSERT INTO users (name, kakao_id, created_at, updated_at) VALUES (?, ?, NOW(), NOW())',
+        [kakaoUserDto.name, kakaoUserDto.providerAccountId],
+      );
+      userId = result.insertId;
+    } else {
+      userId = existingUsers[0].id;
+      await this.connection.execute(
+        'UPDATE users SET name = ?, updated_at = NOW() WHERE id = ?',
+        [kakaoUserDto.name, userId],
+      );
+    }
+
+    const accessToken = this.jwtService.sign(
+      { userId, provider: 'kakao' },
+      { expiresIn: '30m' },
+    );
+
+    const refreshToken = this.jwtService.sign(
+      { userId, provider: 'kakao' },
+      { expiresIn: '7d' },
+    );
+
+    await this.connection.execute(
+      'UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?',
+      [accessToken, refreshToken, userId],
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: userId,
+        name: kakaoUserDto.name,
+      },
+    };
+  }
+}
+
+--- src\search\dto\search.dto.ts ---
+import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class SearchQueryDto {
+  @ApiProperty({ description: '검색어' })
+  @IsString()
+  text: string;
+
+  @ApiProperty({
+    description: '검색 타입',
+    enum: ['both', 'artist', 'title', 'lyrics'],
+  })
+  @IsEnum(['both', 'artist', 'title', 'lyrics'])
+  searchType: 'both' | 'artist' | 'title' | 'lyrics';
+
+  @ApiProperty({ description: '정렬 기준', enum: ['latest', 'popular'] })
+  @IsEnum(['latest', 'popular'])
+  sort: 'latest' | 'popular';
+
+  @ApiProperty({ description: '페이지당 항목 수', required: false })
+  @IsNumber()
+  @IsOptional()
+  limit?: number;
+
+  @ApiProperty({ description: '페이지 번호', required: false })
+  @IsNumber()
+  @IsOptional()
+  page?: number;
+}
+
+--- src\search\entities\search.entity.ts ---
+
+
+--- src\search\search.controller.ts ---
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SearchService } from './search.service';
+
+@ApiTags('search')
+@Controller('search')
+export class SearchController {
+  constructor(
+    private readonly searchService: SearchService,
+  ) {
+  }
+
+  @Get()
+  @ApiOperation({ summary: '통합 검색' })
+  async search(
+    @Query('text') text: string,
+    @Query('searchType') searchType: 'both' | 'artist' | 'title' | 'lyrics',
+    @Query('sort') sort: 'latest' | 'popular',
+    @Query('limit') limit: string = '20',
+    @Query('page') page: string = '1',
+  ) {
+    return this.searchService.search(
+      text,
+      searchType,
+      sort,
+      parseInt(limit),
+      parseInt(page),
+    );
+  }
+}
+
+--- src\search\search.module.ts ---
+import { Module } from '@nestjs/common';
+import { SearchService } from './search.service';
+import { SearchController } from './search.controller';
+import { DatabaseModule } from '../database/database.module';
+
+@Module({
+  imports: [DatabaseModule],
+  controllers: [SearchController],
+  providers: [SearchService],
+  exports: [SearchService],
+})
+export class SearchModule {
+}
+
+--- src\search\search.service.ts ---
+import { Inject, Injectable } from '@nestjs/common';
+import { Connection } from 'mysql2/promise';
+
+@Injectable()
+export class SearchService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+  ) {
+  }
+
+  async search(
+    text: string,
+    searchType: 'both' | 'artist' | 'title' | 'lyrics',
+    sort: 'latest' | 'popular',
+    limit: number = 20,
+    page: number = 1,
+  ) {
+    try {
+      const offset = (page - 1) * limit;
+      const searchPattern = `%${text}%`;
+      const params = [];
+
+      // 검색 타입별 WHERE 절 구성
+      let whereClause = '';
+      if (searchType === 'artist') {
+        whereClause = '(si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?)';
+        params.push(searchPattern, searchPattern, searchPattern);
+      } else if (searchType === 'title') {
+        whereClause = '(si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ?)';
+        params.push(searchPattern, searchPattern, searchPattern);
+      } else if (searchType === 'lyrics') {
+        whereClause = 'si.romanized_ko LIKE ?';
+        params.push(searchPattern);
+      } else {
+        // both - 모든 언어의 제목과 아티스트 검색
+        whereClause = `(
+        si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ? OR 
+        si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?
+      )`;
+        params.push(
+          searchPattern, searchPattern, searchPattern,  // title
+          searchPattern, searchPattern, searchPattern,   // artist
+        );
+      }
+
+      params.push(limit, offset);
+
+      const query = `
+        SELECT 
+          si.id,
+          si.song_id,
+          s.title_ko,
+          s.title_ja,
+          s.title_en,
+          s.artist_id,
+          s.release_date,
+          s.thumbnail_url,
+          s.popularity_score,
+          s.created_at,
+          s.updated_at,
+          si.artist_ko,
+          si.artist_ja,
+          si.artist_en,
+          si.romanized_ko,
+          kn.tj_number,
+          kn.kumyoung_number
+        FROM search_index si
+        INNER JOIN songs s ON si.song_id = s.id
+        LEFT JOIN karaoke_numbers kn ON s.id = kn.song_id
+        WHERE ${whereClause}
+        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+        LIMIT ? OFFSET ?
+      `;
+
+
+      const [rows] = await this.connection.execute(query, params);
+
+      // 전체 개수 쿼리
+      const countQuery = `
+       SELECT COUNT(*) as total
+       FROM search_index si
+       WHERE ${whereClause}
+     `;
+
+      const [countRows] = await this.connection.execute(
+        countQuery,
+        params.slice(0, -2), // limit, offset 제외
+      );
+
+      return {
+        items: rows,
+        total: countRows[0].total,
+        page,
+        limit,
+      };
+    } catch (error) {
+      console.error('검색 중 오류 발생:', error);
+      throw error;
+    }
+  }
+
+  async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
+
+    const query = `
+     INSERT INTO search_index 
+       (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       title_ko = VALUES(title_ko),
+       title_ja = VALUES(title_ja),
+       title_en = VALUES(title_en),
+       artist_ko = VALUES(artist_ko),
+       artist_ja = VALUES(artist_ja),
+       artist_en = VALUES(artist_en),
+       romanized_ko = VALUES(romanized_ko)
+   `;
+
+    try {
+      const result = await this.connection.execute(query, [
+        songId,
+        songData.title_ko,
+        songData.title_ja,
+        songData.title_en,
+        artistData.name_ko,
+        artistData.name_ja,
+        artistData.name_en,
+        lyricsText ? this.convertToRomanizedKo(lyricsText) : null,
+      ]);
+      return result;
+    } catch (error) {
+      console.error('검색 인덱스 업데이트 중 오류:', error);
+      throw error;
+    }
+  }
+
+  private convertToRomanizedKo(lyricsText: string): string {
+    // 일본어 가사를 한글 발음으로 변환하는 로직
+    // 실제 구현은 별도 라이브러리나 매핑 테이블을 사용해야 함
+    return lyricsText;
+  }
+}
+
+--- src\songs\dto\create-song-complete.dto.ts ---
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { ValidateNested, IsOptional } from 'class-validator';
+import { CreateSongDto } from './create-song.dto';
+import { CreateLyricsForCompleteDto } from '../../lyrics/dto/create-lyrics-for-complete.dto';
+import { CreateKaraokeNumberForCompleteDto } from '../../karaoke-numbers/dto/create-karaoke-number-for-complete.dto';
+
+export class CreateSongCompleteDto {
+  @ApiProperty()
+  @ValidateNested()
+  @Type(() => CreateSongDto)
+  song: CreateSongDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateLyricsForCompleteDto)
+  lyrics?: CreateLyricsForCompleteDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateKaraokeNumberForCompleteDto)
+  karaokeNumbers?: CreateKaraokeNumberForCompleteDto;
+}
+
+--- src\songs\dto\create-song.dto.ts ---
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNumber, IsDateString, IsOptional } from 'class-validator';
+
+export class CreateSongDto {
+  @ApiProperty({ description: '한국어 제목' })
+  @IsString()
+  title_ko: string;
+
+  @ApiPropertyOptional({ description: '일본어 제목' })
+  @IsString()
+  @IsOptional()
+  title_ja?: string;
+
+  @ApiPropertyOptional({ description: '영어 제목' })
+  @IsString()
+  @IsOptional()
+  title_en?: string;
+
+  @ApiProperty({ description: '가수 ID' })
+  @IsNumber()
+  artist_id: number;
+
+  @ApiPropertyOptional({ description: '발매일' })
+  @IsDateString()
+  @IsOptional()
+  release_date?: string;
+
+  @ApiPropertyOptional({ description: '썸네일 URL' })
+  @IsString()
+  @IsOptional()
+  thumbnail_url?: string;
+}
+
+--- src\songs\dto\update-song.dto.ts ---
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNumber, IsDateString, IsOptional } from 'class-validator';
+
+export class UpdateSongDto {
+  @ApiPropertyOptional({ description: '한국어 제목' })
+  @IsString()
+  @IsOptional()
+  title_ko?: string;
+
+  @ApiPropertyOptional({ description: '일본어 제목' })
+  @IsString()
+  @IsOptional()
+  title_ja?: string;
+
+  @ApiPropertyOptional({ description: '영어 제목' })
+  @IsString()
+  @IsOptional()
+  title_en?: string;
+
+  @ApiPropertyOptional({ description: '가수 ID' })
+  @IsNumber()
+  @IsOptional()
+  artist_id?: number;
+
+  @ApiPropertyOptional({ description: '발매일' })
+  @IsDateString()
+  @IsOptional()
+  release_date?: string;
+
+  @ApiPropertyOptional({ description: '썸네일 URL' })
+  @IsString()
+  @IsOptional()
+  thumbnail_url?: string;
+}
+
+--- src\songs\entities\song.entity.ts ---
+export class Song {}
+
+
+--- src\songs\songs.controller.ts ---
+import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SearchService } from '../search/search.service';
+import { ArtistsService } from '../artists/artists.service';
+import { SongsService } from './songs.service';
+import { CreateSongDto } from './dto/create-song.dto';
+import { UpdateSongDto } from './dto/update-song.dto';
+import { CreateSongCompleteDto } from './dto/create-song-complete.dto';
+
+@ApiTags('songs')
+@Controller('songs')
+export class SongsController {
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly artistsService: ArtistsService,
+    private readonly songsService: SongsService,
+  ) {
+  }
+
+  @Post()
+  @ApiOperation({ summary: '노래 생성' })
+  async create(@Body() createSongDto: CreateSongDto) {
+    const savedSong = await this.songsService.create(createSongDto);
+    const artist = await this.artistsService.findOne(createSongDto.artist_id);
+
+    await this.searchService.updateSearchIndex(
+      savedSong.id,
+      savedSong,
+      artist,
+    );
+
+    return savedSong;
+  }
+
+  @Post('complete')
+  @ApiOperation({ summary: '노래, 가사, 노래방 번호 일괄 생성' })
+  async createComplete(@Body() createCompleteDto: CreateSongCompleteDto) {
+    return await this.songsService.createComplete(createCompleteDto);
+  }
+
+  @Post('bulk')
+  @ApiOperation({ summary: '여러 곡 일괄 생성' })
+  async createBulk(@Body() createCompleteDtos: CreateSongCompleteDto[]) {
+    const results = [];
+    for (const dto of createCompleteDtos) {
+      const result = await this.songsService.createComplete(dto);
+      results.push(result);
+    }
+    return results;
+  }
+
+  @Get()
+  @ApiOperation({ summary: '노래 목록 조회' })
+  async findAll() {
+    return await this.songsService.findAll();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '특정 노래 조회' })
+  async findOne(@Param('id') id: string) {
+    return await this.songsService.findOne(id);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: '노래 정보 수정' })
+  async update(@Param('id') id: string, @Body() updateSongDto: UpdateSongDto) {
+    const updatedSong = await this.songsService.update(id, updateSongDto);
+    const artist = await this.artistsService.findOne(updatedSong.artist_id);
+
+    await this.searchService.updateSearchIndex(
+      updatedSong.id,
+      updatedSong,
+      artist,
+    );
+
+    return updatedSong;
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: '노래 삭제' })
+  async remove(@Param('id') id: string) {
+    return await this.songsService.remove(id);
+  }
+}
+
+--- src\songs\songs.module.ts ---
+import { forwardRef, Module } from '@nestjs/common';
+import { SongsService } from './songs.service';
+import { SongsController } from './songs.controller';
+import { SearchModule } from '../search/search.module';
+import { DatabaseModule } from '../database/database.module';
+import { ArtistsModule } from '../artists/artists.module';
+import { LyricsModule } from '../lyrics/lyrics.module';
+import { KaraokeNumbersModule } from '../karaoke-numbers/karaoke-numbers.module';
+
+@Module({
+  imports: [DatabaseModule, SearchModule, forwardRef(() => KaraokeNumbersModule), forwardRef(() => LyricsModule), forwardRef(() => ArtistsModule)],
+  controllers: [SongsController],
+  providers: [SongsService],
+  exports: [SongsService],
+})
+export class SongsModule {
+}
+
+
+--- src\songs\songs.service.ts ---
+import { Inject, Injectable } from '@nestjs/common';
+import { Connection, ResultSetHeader } from 'mysql2/promise';
+import { RowDataPacket } from 'mysql2';
+import { CreateSongCompleteDto } from './dto/create-song-complete.dto';
+import { SearchService } from '../search/search.service';
+import { LyricsService } from '../lyrics/lyrics.service';
+import { ArtistsService } from '../artists/artists.service';
+import { KaraokeNumbersService } from '../karaoke-numbers/karaoke-numbers.service';
+import { CreateSongDto } from './dto/create-song.dto';
+import { UpdateSongDto } from './dto/update-song.dto';
+
+@Injectable()
+export class SongsService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private connection: Connection,
+    private readonly searchService: SearchService,
+    private readonly lyricsService: LyricsService,
+    private readonly artistsService: ArtistsService,
+    private readonly karaokeNumbersService: KaraokeNumbersService,
+  ) {
+  }
+
+  async create(createSongDto: CreateSongDto) {
+    const query = `
+      INSERT INTO songs 
+        (title_ko, title_ja, title_en, artist_id, release_date, thumbnail_url)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    const [result] = await this.connection.execute<ResultSetHeader>(query, [
+      createSongDto.title_ko,
+      createSongDto.title_ja,
+      createSongDto.title_en,
+      createSongDto.artist_id,
+      createSongDto.release_date,
+      createSongDto.thumbnail_url,
+    ]);
+
+    return { id: result.insertId, ...createSongDto };
+  }
+
+  async createComplete(createCompleteDto: CreateSongCompleteDto) {
+    let savedSong;
+
+    try {
+      await this.connection.execute('START TRANSACTION');
+
+      // 1. 노래 생성
+      savedSong = await this.create(createCompleteDto.song);
+
+      // 2. 가사 생성 (있는 경우)
+      if (createCompleteDto.lyrics) {
+        await this.lyricsService.create({
+          song_id: savedSong.id,
+          lyrics_text: createCompleteDto.lyrics.lyrics_text,
+        });
+      }
+
+      // 3. 노래방 번호 생성 (있는 경우)
+      if (createCompleteDto.karaokeNumbers) {
+        await this.karaokeNumbersService.create({
+          song_id: savedSong.id,
+          tj_number: createCompleteDto.karaokeNumbers.tj_number,
+          kumyoung_number: createCompleteDto.karaokeNumbers.kumyoung_number,
+        });
+      }
+
+      await this.connection.execute('COMMIT');
+
+      // 4. 검색 인덱스 업데이트
+      const artist = await this.artistsService.findOne(savedSong.artist_id);
+
+      await this.searchService.updateSearchIndex(
+        savedSong.id,
+        savedSong,
+        artist,
+        createCompleteDto.lyrics?.lyrics_text,
+      );
+
+      return savedSong;
+    } catch (error) {
+      console.error('에러 발생:', error);
+      await this.connection.execute('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async findAll() {
+    const [rows] = await this.connection.query<RowDataPacket[]>('SELECT * FROM songs');
+    return rows;
+  }
+
+  async findOne(id: string | number) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM songs WHERE id = ?',
+      [numericId],
+    );
+    return rows[0];
+  }
+
+  async findByArtistId(artistId: string | number) {
+    const numericId = typeof artistId === 'string' ? parseInt(artistId) : artistId;
+    const [rows] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT * FROM songs WHERE artist_id = ?',
+      [numericId],
+    );
+    return rows;
+  }
+
+  async update(id: string | number, updateSongDto: UpdateSongDto) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    const query = `
+    UPDATE songs
+    SET 
+      title_ko = COALESCE(?, title_ko),
+      title_ja = COALESCE(?, title_ja),
+      title_en = COALESCE(?, title_en),
+      artist_id = COALESCE(?, artist_id),
+      release_date = COALESCE(?, release_date),
+      thumbnail_url = COALESCE(?, thumbnail_url)
+    WHERE id = ?
+  `;
+
+    await this.connection.execute(query, [
+      updateSongDto.title_ko,
+      updateSongDto.title_ja,
+      updateSongDto.title_en,
+      updateSongDto.artist_id,
+      updateSongDto.release_date,  // string으로 받아서 DB에서 자동으로 Date로 변환
+      updateSongDto.thumbnail_url,
+      numericId,
+    ]);
+
+    return this.findOne(numericId);
+  }
+
+  async remove(id: string | number) {
+    const numericId = typeof id === 'string' ? parseInt(id) : id;
+    await this.connection.execute('DELETE FROM songs WHERE id = ?', [numericId]);
+    return { id: numericId };
+  }
+
+}
+
+--- src\types\express.d.ts ---
+import { Request } from 'express';
+
+declare module 'express' {
+  interface Request {
+    user?: {
+      userId: number;
+      email: string;
+    };
+  }
+}
+
+--- src\types\users.ts ---
+import { RowDataPacket } from 'mysql2';
+
+export interface User extends RowDataPacket {
+  id: number;
+  email: string;
+  password: string;
+  name: string;
+  access_token: string | null;
+  refresh_token: string | null;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+}
+
+--- src\users\dto\user.dto.ts ---
+import { ApiProperty } from '@nestjs/swagger';
+
+export class UserDto {
+  @ApiProperty()
+  id: number;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  created_at: Date;
+
+  @ApiProperty()
+  updated_at: Date;
+
+  @ApiProperty({ nullable: true })
+  deleted_at: Date | null;
+}
+
+
+--- src\users\entities\user.entity.ts ---
+export class User {}
+
+
+--- src\users\users.controller.ts ---
+import {
+  Controller,
+  Get,
+  Put,
+  Delete,
+  Body,
+  Inject,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { Pool } from 'mysql2/promise';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { UserDto } from './dto/user.dto';
+import { UsersService } from './users.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Request } from 'express';
+
+// 프로필 업데이트를 위한 DTO
+class UpdateProfileDto {
+  name?: string;
+  password?: string;
+}
+
+@ApiTags('users')
+@Controller('users')
+export class UsersController {
+  constructor(
+    @Inject('DATABASE_CONNECTION') private readonly connection: Pool,
+    private readonly usersService: UsersService,
+  ) {
+  }
+
+  @Get()
+  @ApiOperation({ summary: '모든 사용자 조회' })
+  @ApiResponse({
+    status: 200,
+    description: '유저목록 조회',
+    type: [UserDto],
+  })
+  async findAll() {
+    return this.usersService.findAll();
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '내 프로필 조회' })
+  @ApiResponse({
+    status: 200,
+    description: '내 정보 조회',
+    type: UserDto,
+  })
+  async findMyProfile(@Req() req: Request) {
+    const userId = req['user'].userId;
+    return this.usersService.findMyProfile(userId);
+  }
+
+  @Put('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '프로필 정보 수정' })
+  @ApiResponse({
+    status: 200,
+    description: '프로필 수정 성공',
+    type: UserDto,
+  })
+  async updateProfile(
+    @Req() req: Request,
+    @Body() updateData: UpdateProfileDto,
+  ) {
+    const userId = req['user'].userId;
+    return this.usersService.updateProfile(userId, updateData);
+  }
+
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: '회원 탈퇴' })
+  @ApiResponse({
+    status: 200,
+    description: '회원 탈퇴 성공',
+  })
+  async deleteAccount(@Req() req: Request) {
+    const userId = req['user'].userId;
+    return this.usersService.deleteAccount(userId);
+  }
+}
+
+--- src\users\users.module.ts ---
+import { Module } from '@nestjs/common';
+import { UsersController } from './users.controller';
+import { DatabaseModule } from '../database/database.module';
+import { ConfigModule } from '@nestjs/config';
+import { UsersService } from './users.service';
+import { JwtModule } from '@nestjs/jwt';
+
+@Module({
+  imports: [DatabaseModule, ConfigModule, JwtModule],
+  controllers: [UsersController],
+  providers: [UsersService],
+})
+export class UsersModule {
+}
+
+
+--- src\users\users.service.ts ---
+import { Injectable, Inject, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { UserDto } from './dto/user.dto';
+import * as bcrypt from 'bcrypt';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @Inject('DATABASE_CONNECTION') private readonly connection: Pool,
+  ) {
+  }
+
+  async findAll(): Promise<UserDto[]> {
+    const [users] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT id, name, email, created_at, updated_at, deleted_at FROM users',
+    );
+    return users as UserDto[];
+  }
+
+  async findMyProfile(userId: number): Promise<UserDto> {
+    const [users] = await this.connection.execute<RowDataPacket[]>(
+      'SELECT id, name, email, created_at, updated_at FROM users WHERE id = ? AND deleted_at IS NULL',
+      [userId],
+    );
+
+    if (users.length === 0) {
+      throw new UnauthorizedException('사용자를 찾을 수 없습니다');
+    }
+
+    return users[0] as UserDto;
+  }
+
+  async updateProfile(
+    userId: number,
+    updateData: {
+      name?: string,
+      password?: string
+    },
+  ): Promise<UserDto> {
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+
+    // 이름 업데이트
+    if (updateData.name) {
+      updateFields.push('name = ?');
+      updateValues.push(updateData.name);
+    }
+
+    // 비밀번호 업데이트 (해시 처리)
+    if (updateData.password) {
+      const hashedPassword = await bcrypt.hash(updateData.password, 10);
+      updateFields.push('password = ?');
+      updateValues.push(hashedPassword);
+    }
+
+    // 업데이트할 필드가 없는 경우
+    if (updateFields.length === 0) {
+      throw new BadRequestException('업데이트할 정보가 없습니다');
+    }
+
+    // 업데이트 쿼리 생성
+    updateFields.push('updated_at = NOW()');
+    const query = `
+      UPDATE users 
+      SET ${updateFields.join(', ')} 
+      WHERE id = ? AND deleted_at IS NULL
+    `;
+
+    // 쿼리 실행을 위한 값 배열 완성
+    updateValues.push(userId);
+
+    // 데이터베이스 업데이트 실행
+    const [result] = await this.connection.execute<ResultSetHeader>(query, updateValues);
+
+    // 업데이트 확인
+    if (result.affectedRows === 0) {
+      throw new UnauthorizedException('사용자를 찾을 수 없거나 업데이트에 실패했습니다');
+    }
+
+    // 업데이트된 프로필 조회 및 반환
+    return this.findMyProfile(userId);
+  }
+
+  async deleteAccount(userId: number): Promise<{ message: string }> {
+    const [result] = await this.connection.execute<ResultSetHeader>(
+      'UPDATE users SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+      [userId],
+    );
+
+    if (result.affectedRows === 0) {
+      throw new UnauthorizedException('사용자를 찾을 수 없거나 이미 탈퇴한 계정입니다');
+    }
+
+    return { message: '회원 탈퇴가 성공적으로 처리되었습니다' };
+  }
+}
+
+--- src\app.controller.ts ---
+import { Controller, Get } from '@nestjs/common';
+
+@Controller()
+export class AppController {
+  @Get()
+  getHello() {
+    return { message: 'Minchelin API Server is running!' };
+  }
+}
+
+
+--- src\app.module.ts ---
+import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { DatabaseModule } from './database/database.module';
+import { KakaoModule } from './oauth/kakao/kakao.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { SearchModule } from './search/search.module';
+import { ArtistsModule } from './artists/artists.module';
+import { SongsModule } from './songs/songs.module';
+import { LyricsModule } from './lyrics/lyrics.module';
+import { KaraokeNumbersModule } from './karaoke-numbers/karaoke-numbers.module';
+import { FavoritesModule } from './favorites/favorites.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
+    DatabaseModule,
+    AuthModule,
+    UsersModule,
+    KakaoModule,
+    CloudinaryModule,
+    SearchModule,
+    ArtistsModule,
+    SongsModule,
+    LyricsModule,
+    KaraokeNumbersModule,
+    FavoritesModule,
+  ],
+  controllers: [AppController],
+})
+export class AppModule {
+}
+
+
+--- src\app.service.ts ---
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class AppService {
+  getHello(): string {
+    return 'Hello World!';
+  }
+}
+
+
+--- src\main.ts ---
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Validation Pipe
+  app.useGlobalPipes(new ValidationPipe());
+
+  // Swagger Setup
+  const config = new DocumentBuilder()
+    .setTitle('Minchelin API')
+    .setDescription('i can do!')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api', app, document);
+
+  app.enableCors();
+  await app.listen(3000);
+}
+
+bootstrap();
+

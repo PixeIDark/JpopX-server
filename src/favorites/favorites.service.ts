@@ -21,18 +21,9 @@ export class FavoritesService {
     await this.validateListOwnership(userId, listId);
 
     const [songs] = await this.connection.execute<RowDataPacket[]>(
-      `SELECT 
-        fs.id as favorite_id,
-        fs.song_id,
-        fs.order,
-        s.title_ko,
-        s.title_ja,
-        s.title_en,
-        s.thumbnail_url
-      FROM favorite_songs fs
-      INNER JOIN songs s ON fs.song_id = s.id
-      WHERE fs.list_id = ?
-      ORDER BY fs.order ASC`,
+      `SELECT * FROM favorite_songs 
+     WHERE list_id = ? 
+     ORDER BY \`order\` ASC`,
       [listId],
     );
 
@@ -70,33 +61,73 @@ export class FavoritesService {
   }
 
   async addSongToList(userId: number, listId: number, songId: number) {
-    await this.validateListOwnership(userId, listId);
+    const connection = await this.connection.getConnection();
 
-    // 중복 체크
-    const [existingSongs] = await this.connection.execute<RowDataPacket[]>(
-      'SELECT id FROM favorite_songs WHERE list_id = ? AND song_id = ?',
-      [listId, songId],
-    );
+    try {
+      // 트랜잭션 시작
+      await connection.beginTransaction();
 
-    if (existingSongs.length > 0) {
-      throw new BadRequestException('이미 즐겨찾기 목록에 존재하는 곡입니다.');
+      // 1. 권한 체크
+      await this.validateListOwnership(userId, listId);
+
+      // 2. 곡 정보 조회
+      const [songRows] = await connection.execute<RowDataPacket[]>(
+        `SELECT 
+        s.id, s.title_ko, s.title_ja, s.title_en, s.thumbnail_url,
+        a.name_ko as artist_ko, a.name_ja as artist_ja, a.name_en as artist_en,
+        k.tj_number, k.kumyoung_number
+      FROM songs s
+      LEFT JOIN artists a ON s.artist_id = a.id
+      LEFT JOIN karaoke_numbers k ON s.id = k.song_id
+      WHERE s.id = ?`,
+        [songId],
+      );
+
+      const songData = songRows[0];
+
+      // 3. 현재 최대 order 값 조회
+      const [maxOrderResult] = await connection.execute<RowDataPacket[]>(
+        'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_songs WHERE list_id = ?',
+        [listId],
+      );
+      const maxOrder = maxOrderResult[0].maxOrder;
+
+      // 4. favorite_songs에 추가
+      const [result] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO favorite_songs (
+        list_id, song_id, title_ko, title_ja, title_en,
+        artist_ko, artist_ja, artist_en, thumbnail_url,
+        tj_number, kumyoung_number, \`order\`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          listId,
+          songId,
+          songData.title_ko,
+          songData.title_ja,
+          songData.title_en,
+          songData.artist_ko,
+          songData.artist_ja,
+          songData.artist_en,
+          songData.thumbnail_url,
+          songData.tj_number,
+          songData.kumyoung_number,
+          maxOrder + 1,
+        ],
+      );
+
+      await connection.commit();
+
+      return {
+        favorite_id: result.insertId,
+        message: '곡이 즐겨찾기에 추가되었습니다.',
+      };
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    const [maxOrderResult] = await this.connection.execute<RowDataPacket[]>(
-      'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_songs WHERE list_id = ?',
-      [listId],
-    );
-    const maxOrder = maxOrderResult[0].maxOrder;
-
-    const [result] = await this.connection.execute<ResultSetHeader>(
-      'INSERT INTO favorite_songs (list_id, song_id, `order`) VALUES (?, ?, ?)',
-      [listId, songId, maxOrder + 1],
-    );
-
-    return {
-      favorite_id: result.insertId,
-      message: '곡이 즐겨찾기에 추가되었습니다.',
-    };
   }
 
   async removeSongFromList(userId: number, favoriteId: number) {
