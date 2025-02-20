@@ -81,6 +81,16 @@ export class FavoritesService {
     try {
       await connection.beginTransaction();
 
+      const [existing] = await connection.execute(
+        `SELECT id FROM favorite_songs 
+       WHERE list_id = ? AND song_id = ?`,
+        [listId, songId],
+      );
+
+      if (existing[0]) {
+        throw new BadRequestException('이미 즐겨찾기에 추가된 노래입니다.');
+      }
+
       // 1. 권한 체크
       await this.validateListOwnership(userId, listId);
 
