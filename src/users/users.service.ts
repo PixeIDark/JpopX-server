@@ -12,14 +12,14 @@ export class UsersService {
 
   async findAll(): Promise<UserDto[]> {
     const [users] = await this.connection.execute<RowDataPacket[]>(
-      'SELECT id, name, email, created_at, updated_at, deleted_at FROM users',
+      'SELECT id, name, email, profile_image_url, created_at, updated_at, deleted_at FROM users',  // profile_image_url 추가
     );
     return users as UserDto[];
   }
 
   async findMyProfile(userId: number): Promise<UserDto> {
     const [users] = await this.connection.execute<RowDataPacket[]>(
-      'SELECT id, name, email, created_at, updated_at FROM users WHERE id = ? AND deleted_at IS NULL',
+      'SELECT id, name, email, profile_image_url, created_at, updated_at FROM users WHERE id = ? AND deleted_at IS NULL',  // profile_image_url 추가
       [userId],
     );
 
@@ -34,7 +34,8 @@ export class UsersService {
     userId: number,
     updateData: {
       name?: string,
-      password?: string
+      password?: string,
+      profile_image_url?: string;
     },
   ): Promise<UserDto> {
     const updateFields: string[] = [];
@@ -78,7 +79,8 @@ export class UsersService {
     }
 
     // 업데이트된 프로필 조회 및 반환
-    return this.findMyProfile(userId);
+    const updatedUser = await this.findMyProfile(userId);
+    return updatedUser;
   }
 
   async deleteAccount(userId: number): Promise<{ message: string }> {
