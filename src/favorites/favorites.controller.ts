@@ -26,6 +26,19 @@ export class FavoritesController {
     return this.favoritesService.getFavoriteListSongs(req.user.userId, parseInt(listId));
   }
 
+  @Put('lists/reorder')
+  @ApiOperation({ summary: '즐겨찾기 목록 순서 변경' })
+  async reorderList(
+    @Req() req: Request,
+    @Body() data: { listId: number; newOrder: number },
+  ) {
+    return this.favoritesService.reorderList(
+      req.user.userId,
+      data.listId,
+      data.newOrder,
+    );
+  }
+
   @Post('lists')
   @ApiOperation({ summary: '즐겨찾기 목록 생성' })
   async createFavoriteList(
