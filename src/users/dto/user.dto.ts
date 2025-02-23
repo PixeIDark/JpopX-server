@@ -10,6 +10,9 @@ export class UserDto {
   @ApiProperty()
   name: string;
 
+  @ApiProperty({ nullable: true })
+  profile_image_url: string | null;
+
   @ApiProperty()
   created_at: Date;
 
