@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Pool, ResultSetHeader, RowDataPacket, Connection } from 'mysql2/promise';
 
 @Injectable()
@@ -11,10 +11,79 @@ export class FavoritesService {
 
   async getFavoriteLists(userId: number) {
     const [lists] = await this.connection.execute<RowDataPacket[]>(
-      'SELECT * FROM favorite_lists WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC',
+      'SELECT * FROM favorite_lists WHERE user_id = ? AND deleted_at IS NULL ORDER BY `order` ASC',
       [userId],
     );
     return lists;
+  }
+
+  async reorderList(userId: number, listId: number, newOrder: number) {
+    const connection = await this.connection.getConnection();
+
+    try {
+      // 현재 order 값 확인
+      const [lists] = await connection.execute<RowDataPacket[]>(
+        'SELECT id, `order` FROM favorite_lists WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
+        [listId, userId],
+      );
+
+      if (!lists[0]) {
+        throw new ForbiddenException('해당 즐겨찾기 목록에 대한 권한이 없습니다.');
+      }
+
+      const currentOrder = lists[0].order;
+
+      // 최대 order 값 확인
+      const [maxOrderResult] = await connection.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as maxOrder FROM favorite_lists WHERE user_id = ? AND deleted_at IS NULL',
+        [userId],
+      );
+
+      const maxOrder = maxOrderResult[0].maxOrder;
+      const targetOrder = Math.max(1, Math.min(newOrder, maxOrder));
+
+      await connection.beginTransaction();
+
+      try {
+        if (currentOrder < targetOrder) {
+          // 위에서 아래로 이동
+          await connection.execute(
+            `UPDATE favorite_lists 
+           SET \`order\` = \`order\` - 1 
+           WHERE user_id = ? 
+           AND \`order\` > ? 
+           AND \`order\` <= ?
+           AND deleted_at IS NULL`,
+            [userId, currentOrder, targetOrder],
+          );
+        } else if (currentOrder > targetOrder) {
+          // 아래에서 위로 이동
+          await connection.execute(
+            `UPDATE favorite_lists 
+           SET \`order\` = \`order\` + 1 
+           WHERE user_id = ? 
+           AND \`order\` >= ? 
+           AND \`order\` < ?
+           AND deleted_at IS NULL`,
+            [userId, targetOrder, currentOrder],
+          );
+        }
+
+        // 드래그한 항목을 새 위치로 이동
+        await connection.execute(
+          'UPDATE favorite_lists SET `order` = ? WHERE id = ?',
+          [targetOrder, listId],
+        );
+
+        await connection.commit();
+        return { message: '즐겨찾기 목록 순서가 변경되었습니다.' };
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
   }
 
   async getFavoriteListSongs(userId: number, listId: number) {
@@ -31,11 +100,32 @@ export class FavoritesService {
   }
 
   async createFavoriteList(userId: number, name: string) {
-    const [result] = await this.connection.execute<ResultSetHeader>(
-      'INSERT INTO favorite_lists (user_id, name) VALUES (?, ?)',
-      [userId, name],
-    );
-    return { id: result.insertId, name };
+    const connection = await this.connection.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      // 1. 현재 최대 order 값 조회
+      const [maxOrderResult] = await connection.execute<RowDataPacket[]>(
+        'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_lists WHERE user_id = ? AND deleted_at IS NULL',
+        [userId],
+      );
+      const maxOrder = maxOrderResult[0].maxOrder;
+
+      // 2. 새 목록 생성 (maxOrder + 1로 추가)
+      const [result] = await connection.execute<ResultSetHeader>(
+        'INSERT INTO favorite_lists (user_id, name, `order`) VALUES (?, ?, ?)',
+        [userId, name, maxOrder + 1],
+      );
+
+      await connection.commit();
+      return { id: result.insertId, name, order: maxOrder + 1 };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   async updateFavoriteList(userId: number, listId: number, name: string) {
