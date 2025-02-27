@@ -1,110 +1,110 @@
 src
-|-- app.controller.ts
-|-- app.module.ts
-|-- app.service.ts
-|-- artists
-|   |-- artists.controller.ts
-|   |-- artists.module.ts
-|   |-- artists.service.ts
-|   |-- dto
-|   |   |-- create-artist.dto.ts
-|   |   `-- update-artist.dto.ts
-|   `-- entities
-|       `-- artist.entity.ts
-|-- auth
-|   |-- auth.controller.ts
-|   |-- auth.module.ts
-|   |-- auth.service.ts
-|   |-- dto
-|   |   |-- login.dto.ts
-|   |   |-- logout.dto.ts
-|   |   `-- signup.dto.ts
-|   |-- entities
-|   |   `-- auth.entity.ts
-|   |-- jwt-auth.guard.ts
-|   `-- refresh-token
-|       |-- dto
-|       |   `-- refresh-token.dto.ts
-|       |-- entities
-|       |   `-- refresh-token.entity.ts
-|       |-- refresh-token.controller.ts
-|       `-- refresh-token.service.ts
-|-- cloudinary
-|   |-- cloudinary.controller.ts
-|   |-- cloudinary.module.ts
-|   |-- cloudinary.service.ts
-|   |-- dto
-|   |   |-- create-cloudinary.dto.ts
-|   |   `-- update-cloudinary.dto.ts
-|   `-- entities
-|       `-- cloudinary.entity.ts
-|-- database
-|   `-- database.module.ts
-|-- favorites
-|   |-- dto
-|   |   |-- create-favorite-song.dto.ts
-|   |   `-- update-favorite.dto.ts
-|   |-- entities
-|   |   `-- favorite.entity.ts
-|   |-- favorites.controller.ts
-|   |-- favorites.module.ts
-|   `-- favorites.service.ts
-|-- karaoke-numbers
-|   |-- dto
-|   |   |-- create-karaoke-number-for-complete.dto.ts
-|   |   |-- create-karaoke-number.dto.ts
-|   |   `-- update-karaoke-number.dto.ts
-|   |-- entities
-|   |   `-- karaoke-number.entity.ts
-|   |-- karaoke-numbers.controller.ts
-|   |-- karaoke-numbers.module.ts
-|   `-- karaoke-numbers.service.ts
-|-- lyrics
-|   |-- dto
-|   |   |-- create-lyric.dto.ts
-|   |   |-- create-lyrics-for-complete.dto.ts
-|   |   `-- update-lyric.dto.ts
-|   |-- entities
-|   |   `-- lyric.entity.ts
-|   |-- lyrics.controller.ts
-|   |-- lyrics.module.ts
-|   `-- lyrics.service.ts
-|-- main.ts
-|-- oauth
-|   `-- kakao
-|       |-- dto
-|       |   `-- kakao-user.dto.ts
-|       |-- kakao.controller.ts
-|       |-- kakao.module.ts
-|       `-- kakao.service.ts
-|-- search
-|   |-- dto
-|   |   `-- search.dto.ts
-|   |-- entities
-|   |   `-- search.entity.ts
-|   |-- search.controller.ts
-|   |-- search.module.ts
-|   `-- search.service.ts
-|-- songs
-|   |-- dto
-|   |   |-- create-song-complete.dto.ts
-|   |   |-- create-song.dto.ts
-|   |   `-- update-song.dto.ts
-|   |-- entities
-|   |   `-- song.entity.ts
-|   |-- songs.controller.ts
-|   |-- songs.module.ts
-|   `-- songs.service.ts
-|-- types
-|   |-- express.d.ts
-|   `-- users.ts
-`-- users
-    |-- dto
-    |   `-- user.dto.ts
-    |-- entities
-    |   `-- user.entity.ts
-    |-- users.controller.ts
-    |-- users.module.ts
-    `-- users.service.ts
+├── app.controller.ts
+├── app.module.ts
+├── app.service.ts
+├── artists
+│   ├── artists.controller.ts
+│   ├── artists.module.ts
+│   ├── artists.service.ts
+│   ├── dto
+│   │   ├── create-artist.dto.ts
+│   │   └── update-artist.dto.ts
+│   └── entities
+│       └── artist.entity.ts
+├── auth
+│   ├── auth.controller.ts
+│   ├── auth.module.ts
+│   ├── auth.service.ts
+│   ├── dto
+│   │   ├── login.dto.ts
+│   │   ├── logout.dto.ts
+│   │   └── signup.dto.ts
+│   ├── entities
+│   │   └── auth.entity.ts
+│   ├── jwt-auth.guard.ts
+│   └── refresh-token
+│       ├── dto
+│       │   └── refresh-token.dto.ts
+│       ├── entities
+│       │   └── refresh-token.entity.ts
+│       ├── refresh-token.controller.ts
+│       └── refresh-token.service.ts
+├── cloudinary
+│   ├── cloudinary.controller.ts
+│   ├── cloudinary.module.ts
+│   ├── cloudinary.service.ts
+│   ├── dto
+│   │   ├── create-cloudinary.dto.ts
+│   │   └── update-cloudinary.dto.ts
+│   └── entities
+│       └── cloudinary.entity.ts
+├── database
+│   └── database.module.ts
+├── favorites
+│   ├── dto
+│   │   ├── create-favorite-song.dto.ts
+│   │   └── update-favorite.dto.ts
+│   ├── entities
+│   │   └── favorite.entity.ts
+│   ├── favorites.controller.ts
+│   ├── favorites.module.ts
+│   └── favorites.service.ts
+├── karaoke-numbers
+│   ├── dto
+│   │   ├── create-karaoke-number-for-complete.dto.ts
+│   │   ├── create-karaoke-number.dto.ts
+│   │   └── update-karaoke-number.dto.ts
+│   ├── entities
+│   │   └── karaoke-number.entity.ts
+│   ├── karaoke-numbers.controller.ts
+│   ├── karaoke-numbers.module.ts
+│   └── karaoke-numbers.service.ts
+├── lyrics
+│   ├── dto
+│   │   ├── create-lyric.dto.ts
+│   │   ├── create-lyrics-for-complete.dto.ts
+│   │   └── update-lyric.dto.ts
+│   ├── entities
+│   │   └── lyric.entity.ts
+│   ├── lyrics.controller.ts
+│   ├── lyrics.module.ts
+│   └── lyrics.service.ts
+├── main.ts
+├── oauth
+│   └── kakao
+│       ├── dto
+│       │   └── kakao-user.dto.ts
+│       ├── kakao.controller.ts
+│       ├── kakao.module.ts
+│       └── kakao.service.ts
+├── search
+│   ├── dto
+│   │   └── search.dto.ts
+│   ├── entities
+│   │   └── search.entity.ts
+│   ├── search.controller.ts
+│   ├── search.module.ts
+│   └── search.service.ts
+├── songs
+│   ├── dto
+│   │   ├── create-song-complete.dto.ts
+│   │   ├── create-song.dto.ts
+│   │   └── update-song.dto.ts
+│   ├── entities
+│   │   └── song.entity.ts
+│   ├── songs.controller.ts
+│   ├── songs.module.ts
+│   └── songs.service.ts
+├── types
+│   ├── express.d.ts
+│   └── users.ts
+└── users
+    ├── dto
+    │   └── user.dto.ts
+    ├── entities
+    │   └── user.entity.ts
+    ├── users.controller.ts
+    ├── users.module.ts
+    └── users.service.ts
 
-35 directories, 72 files
+36 directories, 72 files

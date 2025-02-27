@@ -11,8 +11,7 @@ export class AuthService {
   constructor(
     @Inject('DATABASE_CONNECTION') private connection: Pool,
     private readonly jwtService: JwtService,
-  ) {
-  }
+  ) {}
 
   async signup(email: string, password: string, name: string) {
     const [existingUsers] = await this.connection.execute<User[]>(
@@ -75,6 +74,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        profile_image_url: user.profile_image_url || null,
       },
     };
   }

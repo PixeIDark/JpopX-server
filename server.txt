@@ -1,19 +1,19 @@
---- src\artists\dto\create-artist.dto.ts ---
+--- src/artists/dto/create-artist.dto.ts ---
 export class CreateArtistDto {}
 
 
---- src\artists\dto\update-artist.dto.ts ---
+--- src/artists/dto/update-artist.dto.ts ---
 import { PartialType } from '@nestjs/swagger';
 import { CreateArtistDto } from './create-artist.dto';
 
 export class UpdateArtistDto extends PartialType(CreateArtistDto) {}
 
 
---- src\artists\entities\artist.entity.ts ---
+--- src/artists/entities/artist.entity.ts ---
 export class Artist {}
 
 
---- src\artists\artists.controller.ts ---
+--- src/artists/artists.controller.ts ---
 import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from '../search/search.service';
@@ -88,7 +88,7 @@ export class ArtistsController {
   }
 }
 
---- src\artists\artists.module.ts ---
+--- src/artists/artists.module.ts ---
 import { forwardRef, Module } from '@nestjs/common';
 import { ArtistsController } from './artists.controller';
 import { ArtistsService } from './artists.service';
@@ -109,7 +109,7 @@ import { SongsModule } from '../songs/songs.module';
 export class ArtistsModule {
 }
 
---- src\artists\artists.service.ts ---
+--- src/artists/artists.service.ts ---
 import { Inject, Injectable } from '@nestjs/common';
 import { Connection, ResultSetHeader } from 'mysql2/promise';
 import { RowDataPacket } from 'mysql2';  // ResultSetHeader 추가
@@ -198,7 +198,7 @@ export class ArtistsService {
   }
 }
 
---- src\auth\dto\login.dto.ts ---
+--- src/auth/dto/login.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString } from 'class-validator';
 
@@ -219,7 +219,7 @@ export class LoginDto {
 }
 
 
---- src\auth\dto\logout.dto.ts ---
+--- src/auth/dto/logout.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LogoutDto {
@@ -230,7 +230,7 @@ export class LogoutDto {
   userId: number;
 }
 
---- src\auth\dto\signup.dto.ts ---
+--- src/auth/dto/signup.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 
@@ -259,11 +259,11 @@ export class SignUpDto {
 }
 
 
---- src\auth\entities\auth.entity.ts ---
+--- src/auth/entities/auth.entity.ts ---
 export class Auth {}
 
 
---- src\auth\refresh-token\dto\refresh-token.dto.ts ---
+--- src/auth/refresh-token/dto/refresh-token.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
@@ -277,11 +277,11 @@ export class RefreshTokenDto {
 }
 
 
---- src\auth\refresh-token\entities\refresh-token.entity.ts ---
+--- src/auth/refresh-token/entities/refresh-token.entity.ts ---
 export class RefreshToken {}
 
 
---- src\auth\refresh-token\refresh-token.controller.ts ---
+--- src/auth/refresh-token/refresh-token.controller.ts ---
 import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RefreshTokenService } from './refresh-token.service';
@@ -306,7 +306,7 @@ export class RefreshTokenController {
   }
 }
 
---- src\auth\refresh-token\refresh-token.service.ts ---
+--- src/auth/refresh-token/refresh-token.service.ts ---
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Connection } from 'mysql2/promise';
@@ -365,7 +365,7 @@ export class RefreshTokenService {
   }
 }
 
---- src\auth\auth.controller.ts ---
+--- src/auth/auth.controller.ts ---
 import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/signup.dto';
@@ -410,7 +410,7 @@ export class AuthController {
 }
 
 
---- src\auth\auth.module.ts ---
+--- src/auth/auth.module.ts ---
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
@@ -440,7 +440,7 @@ export class AuthModule {
 }
 
 
---- src\auth\auth.service.ts ---
+--- src/auth/auth.service.ts ---
 import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Pool } from 'mysql2/promise';
@@ -533,7 +533,7 @@ export class AuthService {
 }
 
 
---- src\auth\jwt-auth.guard.ts ---
+--- src/auth/jwt-auth.guard.ts ---
 import {
   CanActivate,
   ExecutionContext,
@@ -575,22 +575,22 @@ export class JwtAuthGuard implements CanActivate {
 }
 
 
---- src\cloudinary\dto\create-cloudinary.dto.ts ---
+--- src/cloudinary/dto/create-cloudinary.dto.ts ---
 export class CreateCloudinaryDto {}
 
 
---- src\cloudinary\dto\update-cloudinary.dto.ts ---
+--- src/cloudinary/dto/update-cloudinary.dto.ts ---
 import { PartialType } from '@nestjs/swagger';
 import { CreateCloudinaryDto } from './create-cloudinary.dto';
 
 export class UpdateCloudinaryDto extends PartialType(CreateCloudinaryDto) {}
 
 
---- src\cloudinary\entities\cloudinary.entity.ts ---
+--- src/cloudinary/entities/cloudinary.entity.ts ---
 export class Cloudinary {}
 
 
---- src\cloudinary\cloudinary.controller.ts ---
+--- src/cloudinary/cloudinary.controller.ts ---
 import { BadRequestException, Controller, Post, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryService } from './cloudinary.service';
@@ -626,7 +626,7 @@ export class CloudinaryController {
   }
 }
 
---- src\cloudinary\cloudinary.module.ts ---
+--- src/cloudinary/cloudinary.module.ts ---
 import { Module } from '@nestjs/common';
 import { CloudinaryService } from './cloudinary.service';
 import { CloudinaryController } from './cloudinary.controller';
@@ -639,7 +639,7 @@ import { CloudinaryController } from './cloudinary.controller';
 export class CloudinaryModule {
 }
 
---- src\cloudinary\cloudinary.service.ts ---
+--- src/cloudinary/cloudinary.service.ts ---
 import { Injectable } from '@nestjs/common';
 import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
@@ -673,7 +673,7 @@ export class CloudinaryService {
   }
 }
 
---- src\database\database.module.ts ---
+--- src/database/database.module.ts ---
 import { Module } from '@nestjs/common';
 import { createPool, Pool } from 'mysql2/promise';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -703,7 +703,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 export class DatabaseModule {
 }
 
---- src\favorites\dto\create-favorite-song.dto.ts ---
+--- src/favorites/dto/create-favorite-song.dto.ts ---
 export class CreateFavoriteSongDto {
   list_id: number;
   song_id: number;
@@ -718,7 +718,7 @@ export class CreateFavoriteSongDto {
   kumyoung_number?: string;
 }
 
---- src\favorites\dto\update-favorite.dto.ts ---
+--- src/favorites/dto/update-favorite.dto.ts ---
 import { PartialType } from '@nestjs/swagger';
 import { CreateFavoriteSongDto } from './create-favorite-song.dto';
 
@@ -726,11 +726,11 @@ export class UpdateFavoriteDto extends PartialType(CreateFavoriteSongDto) {
 }
 
 
---- src\favorites\entities\favorite.entity.ts ---
+--- src/favorites/entities/favorite.entity.ts ---
 export class Favorite {}
 
 
---- src\favorites\favorites.controller.ts ---
+--- src/favorites/favorites.controller.ts ---
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -824,7 +824,7 @@ export class FavoritesController {
   }
 }
 
---- src\favorites\favorites.module.ts ---
+--- src/favorites/favorites.module.ts ---
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { FavoritesController } from './favorites.controller';
@@ -839,9 +839,9 @@ import { JwtModule } from '@nestjs/jwt';
 export class FavoritesModule {
 }
 
---- src\favorites\favorites.service.ts ---
+--- src/favorites/favorites.service.ts ---
 import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import { Pool, ResultSetHeader, RowDataPacket, Connection } from 'mysql2/promise';
 
 @Injectable()
 export class FavoritesService {
@@ -892,22 +892,46 @@ export class FavoritesService {
   }
 
   async deleteFavoriteList(userId: number, listId: number) {
-    await this.validateListOwnership(userId, listId);
+    const connection = await this.connection.getConnection();
 
-    await this.connection.execute(
-      'UPDATE favorite_lists SET deleted_at = NOW() WHERE id = ?',
-      [listId],
-    );
+    try {
+      await connection.beginTransaction();
+      await this.validateListOwnership(userId, listId);
 
-    return { message: '즐겨찾기 목록이 삭제되었습니다.' };
+      // 모든 곡 인기도 감소
+      await this.updateMultipleSongsPopularity(connection, listId, false);
+
+      // 목록 삭제
+      await connection.execute(
+        'UPDATE favorite_lists SET deleted_at = NOW() WHERE id = ?',
+        [listId],
+      );
+
+      await connection.commit();
+      return { message: '즐겨찾기 목록이 삭제되었습니다.' };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   async addSongToList(userId: number, listId: number, songId: number) {
     const connection = await this.connection.getConnection();
 
     try {
-      // 트랜잭션 시작
       await connection.beginTransaction();
+
+      const [existing] = await connection.execute(
+        `SELECT id FROM favorite_songs 
+       WHERE list_id = ? AND song_id = ?`,
+        [listId, songId],
+      );
+
+      if (existing[0]) {
+        throw new BadRequestException('이미 즐겨찾기에 추가된 노래입니다.');
+      }
 
       // 1. 권한 체크
       await this.validateListOwnership(userId, listId);
@@ -927,14 +951,17 @@ export class FavoritesService {
 
       const songData = songRows[0];
 
-      // 3. 현재 최대 order 값 조회
+      // 3. 인기도 증가
+      await this.updateSongPopularity(connection, songId, true);
+
+      // 4. 현재 최대 order 값 조회
       const [maxOrderResult] = await connection.execute<RowDataPacket[]>(
         'SELECT COALESCE(MAX(`order`), 0) as maxOrder FROM favorite_songs WHERE list_id = ?',
         [listId],
       );
       const maxOrder = maxOrderResult[0].maxOrder;
 
-      // 4. favorite_songs에 추가
+      // 5. favorite_songs에 추가
       const [result] = await connection.execute<ResultSetHeader>(
         `INSERT INTO favorite_songs (
         list_id, song_id, title_ko, title_ja, title_en,
@@ -978,7 +1005,7 @@ export class FavoritesService {
     try {
       // favorite_id로 list_id를 찾고, 권한 확인
       const [favoriteRows] = await connection.execute<RowDataPacket[]>(
-        `SELECT fs.list_id, fs.order
+        `SELECT fs.list_id, fs.order, fs.song_id
          FROM favorite_songs fs
          INNER JOIN favorite_lists fl ON fs.list_id = fl.id
          WHERE fs.id = ? AND fl.user_id = ? AND fl.deleted_at IS NULL`,
@@ -989,19 +1016,21 @@ export class FavoritesService {
         throw new ForbiddenException('해당 즐겨찾기 항목에 대한 권한이 없습니다.');
       }
 
-      const { list_id, order } = favoriteRows[0];
+      const { list_id, order, song_id } = favoriteRows[0];
 
-      // 트랜잭션 시작
       await connection.beginTransaction();
 
       try {
-        // 항목 삭제
+        // 1. 인기도 감소
+        await this.updateSongPopularity(connection, song_id, false);
+
+        // 2. 항목 삭제
         await connection.execute(
           'DELETE FROM favorite_songs WHERE id = ?',
           [favoriteId],
         );
 
-        // 뒤따르는 항목들의 order 값 감소
+        // 3. 뒤따르는 항목들의 order 값 감소
         await connection.execute(
           'UPDATE favorite_songs SET `order` = `order` - 1 WHERE list_id = ? AND `order` > ?',
           [list_id, order],
@@ -1091,6 +1120,33 @@ export class FavoritesService {
     }
   }
 
+  // 헬퍼 함수
+  private async updateSongPopularity(
+    connection: Connection,
+    songId: number,
+    increment: boolean,
+  ) {
+    await connection.execute(
+      'UPDATE songs SET popularity_score = GREATEST(0, popularity_score + ?) WHERE id = ?',
+      [increment ? 1 : -1, songId],
+    );
+  }
+
+  // 헬퍼 함수
+  private async updateMultipleSongsPopularity(
+    connection: Connection,
+    listId: number,
+    increment: boolean,
+  ) {
+    await connection.execute(
+      `UPDATE songs s
+       INNER JOIN favorite_songs fs ON s.id = fs.song_id
+       SET s.popularity_score = GREATEST(0, s.popularity_score + ?)
+       WHERE fs.list_id = ?`,
+      [increment ? 1 : -1, listId],
+    );
+  }
+
   private async validateListOwnership(userId: number, listId: number) {
     const [lists] = await this.connection.execute<RowDataPacket[]>(
       'SELECT id FROM favorite_lists WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
@@ -1103,7 +1159,7 @@ export class FavoritesService {
   }
 }
 
---- src\karaoke-numbers\dto\create-karaoke-number-for-complete.dto.ts ---
+--- src/karaoke-numbers/dto/create-karaoke-number-for-complete.dto.ts ---
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
@@ -1119,7 +1175,7 @@ export class CreateKaraokeNumberForCompleteDto {
   kumyoung_number?: string;
 }
 
---- src\karaoke-numbers\dto\create-karaoke-number.dto.ts ---
+--- src/karaoke-numbers/dto/create-karaoke-number.dto.ts ---
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional } from 'class-validator';
 
@@ -1139,7 +1195,7 @@ export class CreateKaraokeNumberDto {
   kumyoung_number?: string;
 }
 
---- src\karaoke-numbers\dto\update-karaoke-number.dto.ts ---
+--- src/karaoke-numbers/dto/update-karaoke-number.dto.ts ---
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional } from 'class-validator';
 
@@ -1155,11 +1211,11 @@ export class UpdateKaraokeNumberDto {
   kumyoung_number?: string;
 }
 
---- src\karaoke-numbers\entities\karaoke-number.entity.ts ---
+--- src/karaoke-numbers/entities/karaoke-number.entity.ts ---
 export class KaraokeNumber {}
 
 
---- src\karaoke-numbers\karaoke-numbers.controller.ts ---
+--- src/karaoke-numbers/karaoke-numbers.controller.ts ---
 import { Controller, Post, Put, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { KaraokeNumbersService } from './karaoke-numbers.service';
@@ -1190,7 +1246,7 @@ export class KaraokeNumbersController {
   }
 }
 
---- src\karaoke-numbers\karaoke-numbers.module.ts ---
+--- src/karaoke-numbers/karaoke-numbers.module.ts ---
 import { Module } from '@nestjs/common';
 import { KaraokeNumbersController } from './karaoke-numbers.controller';
 import { KaraokeNumbersService } from './karaoke-numbers.service';
@@ -1205,7 +1261,7 @@ import { DatabaseModule } from '../database/database.module';
 export class KaraokeNumbersModule {
 }
 
---- src\karaoke-numbers\karaoke-numbers.service.ts ---
+--- src/karaoke-numbers/karaoke-numbers.service.ts ---
 import { Inject, Injectable } from '@nestjs/common';
 import { Connection, ResultSetHeader } from 'mysql2/promise';
 import { CreateKaraokeNumberDto } from './dto/create-karaoke-number.dto';
@@ -1270,7 +1326,7 @@ export class KaraokeNumbersService {
   }
 }
 
---- src\lyrics\dto\create-lyric.dto.ts ---
+--- src/lyrics/dto/create-lyric.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNumber } from 'class-validator';
 
@@ -1284,7 +1340,7 @@ export class CreateLyricsDto {
   lyrics_text: string;
 }
 
---- src\lyrics\dto\create-lyrics-for-complete.dto.ts ---
+--- src/lyrics/dto/create-lyrics-for-complete.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
@@ -1294,7 +1350,7 @@ export class CreateLyricsForCompleteDto {
   lyrics_text: string;
 }
 
---- src\lyrics\dto\update-lyric.dto.ts ---
+--- src/lyrics/dto/update-lyric.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
@@ -1304,11 +1360,11 @@ export class UpdateLyricsDto {
   lyrics_text: string;
 }
 
---- src\lyrics\entities\lyric.entity.ts ---
+--- src/lyrics/entities/lyric.entity.ts ---
 export class Lyric {}
 
 
---- src\lyrics\lyrics.controller.ts ---
+--- src/lyrics/lyrics.controller.ts ---
 import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from '../search/search.service';
@@ -1379,7 +1435,7 @@ export class LyricsController {
   }
 }
 
---- src\lyrics\lyrics.module.ts ---
+--- src/lyrics/lyrics.module.ts ---
 import { forwardRef, Module } from '@nestjs/common';
 import { LyricsService } from './lyrics.service';
 import { LyricsController } from './lyrics.controller';
@@ -1399,7 +1455,7 @@ export class LyricsModule {
 }
 
 
---- src\lyrics\lyrics.service.ts ---
+--- src/lyrics/lyrics.service.ts ---
 import { Inject, Injectable } from '@nestjs/common';
 import { Connection, ResultSetHeader } from 'mysql2/promise';
 
@@ -1471,7 +1527,7 @@ export class LyricsService {
   }
 }
 
---- src\oauth\kakao\dto\kakao-user.dto.ts ---
+--- src/oauth/kakao/dto/kakao-user.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
@@ -1503,7 +1559,7 @@ export class KakaoUserDto {
   refreshToken: string;
 }
 
---- src\oauth\kakao\kakao.controller.ts ---
+--- src/oauth/kakao/kakao.controller.ts ---
 import { Controller, Post, Body } from '@nestjs/common';
 import { KakaoService } from './kakao.service';
 import { KakaoUserDto } from './dto/kakao-user.dto';
@@ -1523,7 +1579,7 @@ export class KakaoController {
   }
 }
 
---- src\oauth\kakao\kakao.module.ts ---
+--- src/oauth/kakao/kakao.module.ts ---
 import { Module } from '@nestjs/common';
 import { KakaoService } from './kakao.service';
 import { KakaoController } from './kakao.controller';
@@ -1549,7 +1605,7 @@ import { DatabaseModule } from '../../database/database.module';
 export class KakaoModule {
 }
 
---- src\oauth\kakao\kakao.service.ts ---
+--- src/oauth/kakao/kakao.service.ts ---
 import { Injectable, Inject } from '@nestjs/common';
 import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { JwtService } from '@nestjs/jwt';
@@ -1611,7 +1667,7 @@ export class KakaoService {
   }
 }
 
---- src\search\dto\search.dto.ts ---
+--- src/search/dto/search.dto.ts ---
 import { IsString, IsEnum, IsOptional, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -1642,10 +1698,10 @@ export class SearchQueryDto {
   page?: number;
 }
 
---- src\search\entities\search.entity.ts ---
+--- src/search/entities/search.entity.ts ---
 
 
---- src\search\search.controller.ts ---
+--- src/search/search.controller.ts ---
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from './search.service';
@@ -1677,7 +1733,7 @@ export class SearchController {
   }
 }
 
---- src\search\search.module.ts ---
+--- src/search/search.module.ts ---
 import { Module } from '@nestjs/common';
 import { SearchService } from './search.service';
 import { SearchController } from './search.controller';
@@ -1692,7 +1748,7 @@ import { DatabaseModule } from '../database/database.module';
 export class SearchModule {
 }
 
---- src\search\search.service.ts ---
+--- src/search/search.service.ts ---
 import { Inject, Injectable } from '@nestjs/common';
 import { Connection } from 'mysql2/promise';
 
@@ -1836,7 +1892,7 @@ export class SearchService {
   }
 }
 
---- src\songs\dto\create-song-complete.dto.ts ---
+--- src/songs/dto/create-song-complete.dto.ts ---
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ValidateNested, IsOptional } from 'class-validator';
@@ -1863,7 +1919,7 @@ export class CreateSongCompleteDto {
   karaokeNumbers?: CreateKaraokeNumberForCompleteDto;
 }
 
---- src\songs\dto\create-song.dto.ts ---
+--- src/songs/dto/create-song.dto.ts ---
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsDateString, IsOptional } from 'class-validator';
 
@@ -1897,7 +1953,7 @@ export class CreateSongDto {
   thumbnail_url?: string;
 }
 
---- src\songs\dto\update-song.dto.ts ---
+--- src/songs/dto/update-song.dto.ts ---
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsDateString, IsOptional } from 'class-validator';
 
@@ -1933,11 +1989,11 @@ export class UpdateSongDto {
   thumbnail_url?: string;
 }
 
---- src\songs\entities\song.entity.ts ---
+--- src/songs/entities/song.entity.ts ---
 export class Song {}
 
 
---- src\songs\songs.controller.ts ---
+--- src/songs/songs.controller.ts ---
 import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from '../search/search.service';
@@ -2023,7 +2079,7 @@ export class SongsController {
   }
 }
 
---- src\songs\songs.module.ts ---
+--- src/songs/songs.module.ts ---
 import { forwardRef, Module } from '@nestjs/common';
 import { SongsService } from './songs.service';
 import { SongsController } from './songs.controller';
@@ -2043,7 +2099,7 @@ export class SongsModule {
 }
 
 
---- src\songs\songs.service.ts ---
+--- src/songs/songs.service.ts ---
 import { Inject, Injectable } from '@nestjs/common';
 import { Connection, ResultSetHeader } from 'mysql2/promise';
 import { RowDataPacket } from 'mysql2';
@@ -2190,7 +2246,7 @@ export class SongsService {
 
 }
 
---- src\types\express.d.ts ---
+--- src/types/express.d.ts ---
 import { Request } from 'express';
 
 declare module 'express' {
@@ -2202,7 +2258,7 @@ declare module 'express' {
   }
 }
 
---- src\types\users.ts ---
+--- src/types/users.ts ---
 import { RowDataPacket } from 'mysql2';
 
 export interface User extends RowDataPacket {
@@ -2217,7 +2273,7 @@ export interface User extends RowDataPacket {
   deleted_at: Date | null;
 }
 
---- src\users\dto\user.dto.ts ---
+--- src/users/dto/user.dto.ts ---
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UserDto {
@@ -2241,11 +2297,11 @@ export class UserDto {
 }
 
 
---- src\users\entities\user.entity.ts ---
+--- src/users/entities/user.entity.ts ---
 export class User {}
 
 
---- src\users\users.controller.ts ---
+--- src/users/users.controller.ts ---
 import {
   Controller,
   Get,
@@ -2331,7 +2387,7 @@ export class UsersController {
   }
 }
 
---- src\users\users.module.ts ---
+--- src/users/users.module.ts ---
 import { Module } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { DatabaseModule } from '../database/database.module';
@@ -2348,7 +2404,7 @@ export class UsersModule {
 }
 
 
---- src\users\users.service.ts ---
+--- src/users/users.service.ts ---
 import { Injectable, Inject, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { UserDto } from './dto/user.dto';
@@ -2446,7 +2502,7 @@ export class UsersService {
   }
 }
 
---- src\app.controller.ts ---
+--- src/app.controller.ts ---
 import { Controller, Get } from '@nestjs/common';
 
 @Controller()
@@ -2458,7 +2514,7 @@ export class AppController {
 }
 
 
---- src\app.module.ts ---
+--- src/app.module.ts ---
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { ConfigModule } from '@nestjs/config';
@@ -2498,7 +2554,7 @@ export class AppModule {
 }
 
 
---- src\app.service.ts ---
+--- src/app.service.ts ---
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -2509,7 +2565,7 @@ export class AppService {
 }
 
 
---- src\main.ts ---
+--- src/main.ts ---
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
