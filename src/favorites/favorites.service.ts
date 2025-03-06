@@ -1,13 +1,22 @@
-import { Injectable, Inject, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Pool, ResultSetHeader, RowDataPacket, Connection } from 'mysql2/promise';
+import {
+  Injectable,
+  Inject,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  Pool,
+  ResultSetHeader,
+  RowDataPacket,
+  Connection,
+} from 'mysql2/promise';
 
 @Injectable()
 export class FavoritesService {
   constructor(
     @Inject('DATABASE_CONNECTION')
     private connection: Pool,
-  ) {
-  }
+  ) {}
 
   async getFavoriteLists(userId: number) {
     const [lists] = await this.connection.execute<RowDataPacket[]>(
@@ -28,7 +37,9 @@ export class FavoritesService {
       );
 
       if (!lists[0]) {
-        throw new ForbiddenException('해당 즐겨찾기 목록에 대한 권한이 없습니다.');
+        throw new ForbiddenException(
+          '해당 즐겨찾기 목록에 대한 권한이 없습니다.',
+        );
       }
 
       const currentOrder = lists[0].order;
@@ -128,15 +139,50 @@ export class FavoritesService {
     }
   }
 
-  async updateFavoriteList(userId: number, listId: number, name: string) {
+  async updateFavoriteList(
+    userId: number,
+    listId: number,
+    data: { name?: string; image_url?: string },
+  ) {
     await this.validateListOwnership(userId, listId);
 
-    await this.connection.execute(
-      'UPDATE favorite_lists SET name = ? WHERE id = ?',
-      [name, listId],
+    const updateFields = [];
+    const updateValues = [];
+
+    if (data.name !== undefined) {
+      updateFields.push('name = ?');
+      updateValues.push(data.name);
+    }
+
+    if (data.image_url !== undefined) {
+      updateFields.push('image_url = ?');
+      updateValues.push(data.image_url);
+    }
+
+    if (updateFields.length === 0) {
+      return this.findById(listId);
+    }
+
+    const query = `
+    UPDATE favorite_lists 
+    SET ${updateFields.join(', ')} 
+    WHERE id = ?
+  `;
+
+    updateValues.push(listId);
+
+    await this.connection.execute(query, updateValues);
+
+    return this.findById(listId);
+  }
+
+  async findById(listId: number) {
+    const [rows] = await this.connection.execute(
+      'SELECT * FROM favorite_lists WHERE id = ? AND deleted_at IS NULL',
+      [listId],
     );
 
-    return { id: listId, name };
+    return rows[0];
   }
 
   async deleteFavoriteList(userId: number, listId: number) {
@@ -238,7 +284,6 @@ export class FavoritesService {
         favorite_id: result.insertId,
         message: '곡이 즐겨찾기에 추가되었습니다.',
       };
-
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -261,7 +306,9 @@ export class FavoritesService {
       );
 
       if (!favoriteRows[0]) {
-        throw new ForbiddenException('해당 즐겨찾기 항목에 대한 권한이 없습니다.');
+        throw new ForbiddenException(
+          '해당 즐겨찾기 항목에 대한 권한이 없습니다.',
+        );
       }
 
       const { list_id, order, song_id } = favoriteRows[0];
@@ -273,10 +320,9 @@ export class FavoritesService {
         await this.updateSongPopularity(connection, song_id, false);
 
         // 2. 항목 삭제
-        await connection.execute(
-          'DELETE FROM favorite_songs WHERE id = ?',
-          [favoriteId],
-        );
+        await connection.execute('DELETE FROM favorite_songs WHERE id = ?', [
+          favoriteId,
+        ]);
 
         // 3. 뒤따르는 항목들의 order 값 감소
         await connection.execute(
@@ -309,7 +355,9 @@ export class FavoritesService {
       );
 
       if (!favorites[0]) {
-        throw new ForbiddenException('해당 즐겨찾기 항목에 대한 권한이 없습니다.');
+        throw new ForbiddenException(
+          '해당 즐겨찾기 항목에 대한 권한이 없습니다.',
+        );
       }
 
       const { list_id, order: currentOrder } = favorites[0];
@@ -402,7 +450,9 @@ export class FavoritesService {
     );
 
     if (!lists[0]) {
-      throw new ForbiddenException('해당 즐겨찾기 목록에 대한 권한이 없습니다.');
+      throw new ForbiddenException(
+        '해당 즐겨찾기 목록에 대한 권한이 없습니다.',
+      );
     }
   }
 }

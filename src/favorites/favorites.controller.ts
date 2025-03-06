@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { FavoritesService } from './favorites.service';
@@ -8,8 +18,7 @@ import { Request } from 'express';
 @Controller('favorites')
 @UseGuards(JwtAuthGuard)
 export class FavoritesController {
-  constructor(private readonly favoritesService: FavoritesService) {
-  }
+  constructor(private readonly favoritesService: FavoritesService) {}
 
   @Get('lists')
   @ApiOperation({ summary: '즐겨찾기 목록 조회' })
@@ -23,7 +32,10 @@ export class FavoritesController {
     @Req() req: Request,
     @Param('listId') listId: string,
   ) {
-    return this.favoritesService.getFavoriteListSongs(req.user.userId, parseInt(listId));
+    return this.favoritesService.getFavoriteListSongs(
+      req.user.userId,
+      parseInt(listId),
+    );
   }
 
   @Put('lists/reorder')
@@ -49,13 +61,17 @@ export class FavoritesController {
   }
 
   @Put('lists/:listId')
-  @ApiOperation({ summary: '즐겨찾기 목록 이름 수정' })
+  @ApiOperation({ summary: '즐겨찾기 목록 수정' })
   async updateFavoriteList(
     @Req() req: Request,
     @Param('listId') listId: string,
-    @Body() data: { name: string },
+    @Body() data: { name?: string; image_url?: string },
   ) {
-    return this.favoritesService.updateFavoriteList(req.user.userId, parseInt(listId), data.name);
+    return this.favoritesService.updateFavoriteList(
+      req.user.userId,
+      parseInt(listId),
+      data,
+    );
   }
 
   @Delete('lists/:listId')
@@ -64,7 +80,10 @@ export class FavoritesController {
     @Req() req: Request,
     @Param('listId') listId: string,
   ) {
-    return this.favoritesService.deleteFavoriteList(req.user.userId, parseInt(listId));
+    return this.favoritesService.deleteFavoriteList(
+      req.user.userId,
+      parseInt(listId),
+    );
   }
 
   @Post('lists/:listId/songs')
@@ -87,7 +106,10 @@ export class FavoritesController {
     @Req() req: Request,
     @Param('favoriteId') favoriteId: string,
   ) {
-    return this.favoritesService.removeSongFromList(req.user.userId, parseInt(favoriteId));
+    return this.favoritesService.removeSongFromList(
+      req.user.userId,
+      parseInt(favoriteId),
+    );
   }
 
   @Put('songs/reorder')
