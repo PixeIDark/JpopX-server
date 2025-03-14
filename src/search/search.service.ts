@@ -6,8 +6,7 @@ export class SearchService {
   constructor(
     @Inject('DATABASE_CONNECTION')
     private connection: Connection,
-  ) {
-  }
+  ) {}
 
   async search(
     text: string,
@@ -24,10 +23,12 @@ export class SearchService {
       // 검색 타입별 WHERE 절 구성
       let whereClause = '';
       if (searchType === 'artist') {
-        whereClause = '(si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?)';
+        whereClause =
+          '(si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?)';
         params.push(searchPattern, searchPattern, searchPattern);
       } else if (searchType === 'title') {
-        whereClause = '(si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ?)';
+        whereClause =
+          '(si.title_ko LIKE ? OR si.title_ja LIKE ? OR si.title_en LIKE ?)';
         params.push(searchPattern, searchPattern, searchPattern);
       } else if (searchType === 'lyrics') {
         whereClause = 'si.romanized_ko LIKE ?';
@@ -39,8 +40,12 @@ export class SearchService {
         si.artist_ko LIKE ? OR si.artist_ja LIKE ? OR si.artist_en LIKE ?
       )`;
         params.push(
-          searchPattern, searchPattern, searchPattern,  // title
-          searchPattern, searchPattern, searchPattern,   // artist
+          searchPattern,
+          searchPattern,
+          searchPattern, // title
+          searchPattern,
+          searchPattern,
+          searchPattern, // artist
         );
       }
 
@@ -73,7 +78,6 @@ export class SearchService {
         LIMIT ? OFFSET ?
       `;
 
-
       const [rows] = await this.connection.execute(query, params);
 
       // 전체 개수 쿼리
@@ -100,8 +104,12 @@ export class SearchService {
     }
   }
 
-  async updateSearchIndex(songId: number, songData: any, artistData: any, lyricsText?: string) {
-
+  async updateSearchIndex(
+    songId: number,
+    songData: any,
+    artistData: any,
+    lyricsText?: string,
+  ) {
     const query = `
      INSERT INTO search_index 
        (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
@@ -138,5 +146,27 @@ export class SearchService {
     // 일본어 가사를 한글 발음으로 변환하는 로직
     // 실제 구현은 별도 라이브러리나 매핑 테이블을 사용해야 함
     return lyricsText;
+  }
+  async updateArtistInSearchIndex(songId: number, artistData: any) {
+    const query = `
+    UPDATE search_index 
+    SET 
+      artist_ko = ?,
+      artist_ja = ?,
+      artist_en = ?
+    WHERE song_id = ?
+  `;
+
+    try {
+      return await this.connection.execute(query, [
+        artistData.name_ko,
+        artistData.name_ja,
+        artistData.name_en,
+        songId,
+      ]);
+    } catch (error) {
+      console.error('검색 인덱스 가수 정보 업데이트 중 오류:', error);
+      throw error;
+    }
   }
 }

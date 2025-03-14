@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from '../search/search.service';
 import { SongsService } from '../songs/songs.service';
@@ -11,18 +19,20 @@ export class ArtistsController {
     private readonly searchService: SearchService,
     private readonly songsService: SongsService,
     private readonly artistsService: ArtistsService,
-  ) {
-  }
+  ) {}
 
   @Post()
   @ApiOperation({ summary: '가수 생성' })
-  async create(@Body() createArtistDto: {
-    name_ko: string;
-    name_ja?: string;
-    name_en?: string;
-    profile_image_url?: string;
-    is_group?: boolean;
-  }) {
+  async create(
+    @Body()
+    createArtistDto: {
+      name_ko: string;
+      name_ja?: string;
+      name_en?: string;
+      profile_image_url?: string;
+      is_group?: boolean;
+    },
+  ) {
     const savedArtist = await this.artistsService.create(createArtistDto);
     return savedArtist;
   }
@@ -43,20 +53,23 @@ export class ArtistsController {
 
   @Put(':id')
   @ApiOperation({ summary: '가수 정보 수정' })
-  async update(@Param('id') id: string, @Body() updateArtistDto: {
-    name_ko?: string;
-    name_ja?: string;
-    name_en?: string;
-    profile_image_url?: string;
-    is_group?: boolean;
-  }) {
+  async update(
+    @Param('id') id: string,
+    @Body()
+    updateArtistDto: {
+      name_ko?: string;
+      name_ja?: string;
+      name_en?: string;
+      profile_image_url?: string;
+      is_group?: boolean;
+    },
+  ) {
     const updatedArtist = await this.artistsService.update(id, updateArtistDto);
 
     const songs = await this.songsService.findByArtistId(id);
     for (const song of songs) {
-      await this.searchService.updateSearchIndex(
+      await this.searchService.updateArtistInSearchIndex(
         song.id,
-        song,
         updatedArtist,
       );
     }
