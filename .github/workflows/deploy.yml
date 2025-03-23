@@ -21,9 +21,9 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/JpopX-server
-            sudo rm -rf .env
+            sudo sh -c 'rm -rf .env'
             sudo git pull origin main
-            sudo echo "$ENV" > .env
+            sudo sh -c "echo \"$ENV\" > .env"
             sudo pnpm i
             sudo pnpm run build
             sudo pm2 kill
