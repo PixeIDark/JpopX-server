@@ -18,8 +18,7 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/JpopX-server
-            git fetch origin main
-            git reset --hard origin/main
+            sudo git pull origin main
             pnpm i
             pnpm run build
             pm2 kill
