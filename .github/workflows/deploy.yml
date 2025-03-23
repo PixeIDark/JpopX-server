@@ -21,10 +21,18 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/JpopX-server
-            rm -rf .env
-            git pull origin main
-            echo "$ENV" > .env
-            pnpm i
-            pnpm run build
-            pm2 kill
-            pm2 start dist/main.js --name "server-running"
+            
+            echo "$ENV" > /tmp/env_content
+            
+            sudo git pull origin main
+            sudo rm -f .env
+            sudo cp /tmp/env_content .env
+            sudo chown root:root .env
+            sudo chmod 644 .env
+            
+            rm -f /tmp/env_content
+            
+            sudo pnpm i
+            sudo pnpm run build
+            sudo pm2 kill
+            sudo pm2 start dist/main.js --name "server-running"
