@@ -42,7 +42,7 @@ export class ArtistsController {
     const savedArtist = await this.artistsService.create(createArtistDto);
     return savedArtist;
   }
-
+ㅇ
   @Get()
   @ApiOperation({ summary: '가수 목록 조회' })
   async findAll() {
