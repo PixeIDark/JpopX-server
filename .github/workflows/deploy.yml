@@ -22,7 +22,7 @@ jobs:
             set -e
             cd /home/ubuntu/JpopX-server
             sudo git pull origin main
-            chmod 644 .env
+            sudo chmod 644 .env
             sudo touch .env
             sudo echo "$ENV" > .env
             sudo pnpm i
