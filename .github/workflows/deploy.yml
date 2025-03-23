@@ -16,8 +16,6 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            set -e
-            git config --global --add safe.directory /home/ubuntu/JpopX-server
             cd /home/ubuntu/JpopX-server
             git pull origin main
             pnpm i
