@@ -1,4 +1,4 @@
-name: Deploy EC2
+name: Deploy To EC2
 
 on:
   push:
@@ -17,7 +17,6 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script:
-            set -e
             cd /home/ubuntu/JpopX-server
             git pull origin main
             pnpm i
