@@ -11,14 +11,19 @@ jobs:
     steps:
       - name: SSH Connect EC2
         uses: appleboy/ssh-action@v1
+        env:
+          ENV: ${{ secrets.ENV }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
+          envs: ENV
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
             set -e
             cd /home/ubuntu/JpopX-server
+            sudo rm - rf .env
             sudo git pull origin main
+            sudo echo "$ENV" > .env
             sudo pnpm i
             sudo pnpm run build
             sudo pm2 kill
