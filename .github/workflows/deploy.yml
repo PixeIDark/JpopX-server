@@ -1,0 +1,26 @@
+name: Deploy To EC2
+
+on:
+  push:
+    branches:
+      - main
+
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Connect EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: linuxserver.io
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script:
+            cd /home/ubuntu/JpopX-server
+            git pull origin main
+            pnpm i
+            pnpm run build
+            pm2 kill
+            pm2 start dist/main.js --name "server-running"
