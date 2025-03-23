@@ -21,9 +21,20 @@ jobs:
           script: |
             set -e
             cd /home/ubuntu/JpopX-server
+            
+            # ENV 내용을 파일로 저장
+            echo "$ENV" > /tmp/env_content
+            
+            # 파일 이동 및 권한 설정
             sudo git pull origin main
-            sudo touch .env
-            sudo echo "$ENV" > .env
+            sudo rm -f .env
+            sudo cp /tmp/env_content .env
+            sudo chown root:root .env
+            sudo chmod 644 .env
+            
+            # 임시 파일 삭제
+            rm -f /tmp/env_content
+            
             sudo pnpm i
             sudo pnpm run build
             sudo pm2 kill
