@@ -19,7 +19,7 @@ jobs:
             set -e
             cd /home/ubuntu/JpopX-server
             sudo git pull origin main
-            pnpm i
-            pnpm run build
-            pm2 kill
-            pm2 start dist/main.js --name "server-running"
+            sudo pnpm i
+            sudo pnpm run build
+            sudo pm2 kill
+            sudo pm2 start dist/main.js --name "server-running"
