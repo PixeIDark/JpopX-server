@@ -16,7 +16,11 @@ export class SearchService {
     page: number = 1,
   ) {
     try {
-      const offset = (page - 1) * limit;
+      // 명시적으로 숫자 타입으로 변환
+      const numericLimit = Number(limit);
+      const numericPage = Number(page);
+      const offset = (numericPage - 1) * numericLimit;
+
       const searchPattern = `%${text}%`;
       const params = [];
 
@@ -49,45 +53,50 @@ export class SearchService {
         );
       }
 
-      params.push(limit, offset);
+      // execute 대신 query 메서드 사용
+      params.push(numericLimit, offset);
+
+      console.log('Query Params:', params);
 
       const query = `
-        SELECT 
-          si.id,
-          si.song_id,
-          s.title_ko,
-          s.title_ja,
-          s.title_en,
-          s.artist_id,
-          s.release_date,
-          s.thumbnail_url,
-          s.popularity_score,
-          s.created_at,
-          s.updated_at,
-          si.artist_ko,
-          si.artist_ja,
-          si.artist_en,
-          si.romanized_ko,
-          kn.tj_number,
-          kn.kumyoung_number
-        FROM search_index si
-        INNER JOIN songs s ON si.song_id = s.id
-        LEFT JOIN karaoke_numbers kn ON s.id = kn.song_id
-        WHERE ${whereClause}
-        ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
-        LIMIT ? OFFSET ?
+          SELECT
+              si.id,
+              si.song_id,
+              s.title_ko,
+              s.title_ja,
+              s.title_en,
+              s.artist_id,
+              s.release_date,
+              s.thumbnail_url,
+              s.popularity_score,
+              s.created_at,
+              s.updated_at,
+              si.artist_ko,
+              si.artist_ja,
+              si.artist_en,
+              si.romanized_ko,
+              kn.tj_number,
+              kn.kumyoung_number
+          FROM search_index si
+                   INNER JOIN songs s ON si.song_id = s.id
+                   LEFT JOIN karaoke_numbers kn ON s.id = kn.song_id
+          WHERE ${whereClause}
+          ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+              LIMIT ? OFFSET ?
       `;
 
-      const [rows] = await this.connection.execute(query, params);
+      // execute 대신 query 사용
+      const [rows] = await this.connection.query(query, params);
 
       // 전체 개수 쿼리
       const countQuery = `
-       SELECT COUNT(*) as total
-       FROM search_index si
-       WHERE ${whereClause}
-     `;
+          SELECT COUNT(*) as total
+          FROM search_index si
+          WHERE ${whereClause}
+      `;
 
-      const [countRows] = await this.connection.execute(
+      // 여기도 query 사용
+      const [countRows] = await this.connection.query(
         countQuery,
         params.slice(0, -2), // limit, offset 제외
       );
@@ -95,8 +104,8 @@ export class SearchService {
       return {
         items: rows,
         total: countRows[0].total,
-        page,
-        limit,
+        page: numericPage,
+        limit: numericLimit,
       };
     } catch (error) {
       console.error('검색 중 오류 발생:', error);
@@ -111,21 +120,21 @@ export class SearchService {
     lyricsText?: string,
   ) {
     const query = `
-     INSERT INTO search_index 
-       (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       title_ko = VALUES(title_ko),
-       title_ja = VALUES(title_ja),
-       title_en = VALUES(title_en),
-       artist_ko = VALUES(artist_ko),
-       artist_ja = VALUES(artist_ja),
-       artist_en = VALUES(artist_en),
-       romanized_ko = VALUES(romanized_ko)
-   `;
+        INSERT INTO search_index
+        (song_id, title_ko, title_ja, title_en, artist_ko, artist_ja, artist_en, romanized_ko)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                                 title_ko = VALUES(title_ko),
+                                 title_ja = VALUES(title_ja),
+                                 title_en = VALUES(title_en),
+                                 artist_ko = VALUES(artist_ko),
+                                 artist_ja = VALUES(artist_ja),
+                                 artist_en = VALUES(artist_en),
+                                 romanized_ko = VALUES(romanized_ko)
+    `;
 
     try {
-      const result = await this.connection.execute(query, [
+      const result = await this.connection.query(query, [
         songId,
         songData.title_ko,
         songData.title_ja,
@@ -147,18 +156,19 @@ export class SearchService {
     // 실제 구현은 별도 라이브러리나 매핑 테이블을 사용해야 함
     return lyricsText;
   }
+
   async updateArtistInSearchIndex(songId: number, artistData: any) {
     const query = `
-    UPDATE search_index 
-    SET 
-      artist_ko = ?,
-      artist_ja = ?,
-      artist_en = ?
-    WHERE song_id = ?
-  `;
+        UPDATE search_index
+        SET
+            artist_ko = ?,
+            artist_ja = ?,
+            artist_en = ?
+        WHERE song_id = ?
+    `;
 
     try {
-      return await this.connection.execute(query, [
+      return await this.connection.query(query, [
         artistData.name_ko,
         artistData.name_ja,
         artistData.name_en,

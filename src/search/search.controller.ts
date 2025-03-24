@@ -19,12 +19,16 @@ export class SearchController {
     @Query('limit') limit: string = '20',
     @Query('page') page: string = '1',
   ) {
+    // 명시적 숫자 변환
+    const numericLimit = parseInt(limit, 10) || 20;
+    const numericPage = parseInt(page, 10) || 1;
+
     return this.searchService.search(
       text,
       searchType,
       sort,
-      parseInt(limit),
-      parseInt(page),
+      numericLimit,
+      numericPage,
     );
   }
 }
