@@ -14,7 +14,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           port: configService.get('DATABASE_PORT'),
           user: 'root',
           password: configService.get('DATABASE_PASSWORD'),
-          database: 'minchelin',
+          database: configService.get('DATABASE_NAME'),
           waitForConnections: true,
           connectionLimit: 10,
           queueLimit: 0,
