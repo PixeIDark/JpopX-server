@@ -11,7 +11,7 @@ dㅇ
 
 --- src/artists/entities/artist.entity.ts ---
 export class Artist {}
-
+d
 
 --- src/artists/artists.controller.ts ---
 import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
