@@ -12,6 +12,7 @@ dㅇz
 --- src/artists/entities/artist.entity.ts ---
 export class Artist {}
 dd
+// 액션
 
 --- src/artists/artists.controller.ts ---
 import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
