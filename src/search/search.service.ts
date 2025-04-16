@@ -56,8 +56,6 @@ export class SearchService {
       // execute 대신 query 메서드 사용
       params.push(numericLimit, offset);
 
-      console.log('Query Params:', params);
-
       const query = `
           SELECT
               si.id,
@@ -81,9 +79,10 @@ export class SearchService {
                    INNER JOIN songs s ON si.song_id = s.id
                    LEFT JOIN karaoke_numbers kn ON s.id = kn.song_id
           WHERE ${whereClause}
-          ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.release_date'} DESC
+          ORDER BY ${sort === 'popular' ? 's.popularity_score' : 's.updated_at'} DESC
               LIMIT ? OFFSET ?
       `;
+      // TODO: 나중에 정렬 바꿔줘야함 디비 수정되면 's.updated_at' => "s.release_date" 로
 
       // execute 대신 query 사용
       const [rows] = await this.connection.query(query, params);
